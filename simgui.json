@@ -45,12 +45,15 @@
         {
           "axis": [
             {
-              "autoFit": true,
-              "opposite": true,
-              "tickMarks": false
+              "label": "Angle (Radians",
+              "lockMax": true,
+              "lockMin": true,
+              "max": 3.14,
+              "min": -3.14
             }
           ],
-          "height": 338,
+          "height": 247,
+          "name": "Heading",
           "series": [
             {
               "color": [
@@ -59,7 +62,52 @@
                 0.6901960968971252,
                 1.0
               ],
-              "id": "NT:/LiveWindow/Ungrouped/PIDController[1]/setpoint"
+              "id": "NT:/LiveWindow/Ungrouped/PIDController[1]/setpoint",
+              "name": "Setpoint"
+            },
+            {
+              "color": [
+                1.0,
+                0.6470587849617004,
+                0.0,
+                1.0
+              ],
+              "id": "NT:/SmartDashboard/goal",
+              "marker": "None",
+              "name": "Goal"
+            },
+            {
+              "color": [
+                0.3333333432674408,
+                0.658823549747467,
+                0.4078431725502014,
+                1.0
+              ],
+              "id": "NT:/SmartDashboard/heading",
+              "name": "Measurement"
+            }
+          ]
+        },
+        {
+          "axis": [
+            {
+              "autoFit": true,
+              "label": "Velocity (mps)"
+            }
+          ],
+          "height": 247,
+          "lockPrevX": true,
+          "name": "Wheel Velocity",
+          "series": [
+            {
+              "color": [
+                0.2980392277240753,
+                0.44705885648727417,
+                0.6901960968971252,
+                1.0
+              ],
+              "id": "NT:/SmartDashboard/wheelvelocitygoal",
+              "name": "Goal"
             },
             {
               "color": [
@@ -68,11 +116,15 @@
                 0.32156863808631897,
                 1.0
               ],
-              "id": "NT:/SmartDashboard/desiredHeading"
+              "id": "NT:/SmartDashboard/wheelvelocityvalue",
+              "name": "Measurement"
             }
           ]
         }
-      ]
+      ],
+      "window": {
+        "name": "PID"
+      }
     }
   }
 }

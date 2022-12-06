@@ -8,6 +8,7 @@ package io.github.tigerbotics7125.robot.subsystem;
 import static io.github.tigerbotics7125.robot.Constants.Drivetrain.*;
 
 import io.github.tigerbotics7125.robot.Robot;
+import io.github.tigerbotics7125.tigerlib.util.JoystickUtil;
 
 import edu.wpi.first.math.controller.ProfiledPIDController;
 import edu.wpi.first.math.estimator.MecanumDrivePoseEstimator;
@@ -17,6 +18,8 @@ import edu.wpi.first.math.kinematics.ChassisSpeeds;
 import edu.wpi.first.math.kinematics.MecanumDriveKinematics;
 import edu.wpi.first.math.kinematics.MecanumDriveWheelSpeeds;
 import edu.wpi.first.math.system.plant.DCMotor;
+import edu.wpi.first.math.util.Units;
+import edu.wpi.first.wpilibj.drive.Vector2d;
 import edu.wpi.first.wpilibj.smartdashboard.SmartDashboard;
 import edu.wpi.first.wpilibj2.command.SubsystemBase;
 
@@ -36,10 +39,12 @@ public class Drivetrain extends SubsystemBase {
     final MecanumDrivePoseEstimator mPoseEstimator;
 
     final ProfiledPIDController mThetaPID = kThetaPIDController;
+    Rotation2d mDesiredHeading = new Rotation2d();
 
     boolean mFieldOriented = kFieldOrientedDefault;
-    boolean mProtectHeading = kProtectHeadingDefault;
-    Rotation2d mDesiredHeading = new Rotation2d();
+
+    boolean mTargetLock = false;
+    Rotation2d mTargetLockHeading = new Rotation2d();
 
     public Drivetrain() {
         mMotors =
@@ -61,13 +66,15 @@ public class Drivetrain extends SubsystemBase {
                         kStateStdDevs,
                         kLocalMeasurementStdDevs,
                         kVisionMeasurementStdDevs);
+
+        kThetaPIDController.enableContinuousInput(-Math.PI, Math.PI);
     }
 
     /** @param motor The motor to setup. */
     private void initMotor(CANSparkMax motor) {
         motor.setSmartCurrentLimit(kStallCurrentLimit, kFreeSpeedCurrentLimit);
         motor.setIdleMode(IdleMode.kCoast);
-        motor.getPIDController().setP(.5);
+        motor.getPIDController().setP(kWheelPGain);
         motor.getEncoder().setPositionConversionFactor(kPositionConversionFactor);
         motor.getEncoder().setVelocityConversionFactor(kVelocityConversionFactor);
         if (Robot.isSimulation()) REVPhysicsSim.getInstance().addSparkMax(motor, DCMotor.getNEO(1));
@@ -81,6 +88,12 @@ public class Drivetrain extends SubsystemBase {
     @Override
     public void simulationPeriodic() {
         REVPhysicsSim.getInstance().run();
+        var deg =
+                Units.radiansToDegrees(
+                                mKinematics.toChassisSpeeds(getWheelSpeeds()).omegaRadiansPerSecond)
+                        * kMaxThetaVelocity
+                        * Robot.kDefaultPeriod;
+        mPigeon.getSimCollection().addHeading(deg);
     }
 
     /** Disables all motor output. */
@@ -100,31 +113,53 @@ public class Drivetrain extends SubsystemBase {
     }
 
     /**
-     * @param xSpeed Speed in the forwards direction.
-     * @param ySpeed Speed in the left direction.
-     * @param zx X axis of the desired heading.
-     * @param zy Y axis of the desired heading.
+     * @param xInput Input in the forwards direction. [-1, 1]
+     * @param yInput Input in the left direction. [-1, 1]
+     * @param zx X axis of the desired heading. [-1, 1]
+     * @param zy Y axis of the desired heading. [-1, 1]
      */
-    public void driveFaceAngle(double xSpeed, double ySpeed, double zx, double zy) {
+    public void driveFaceAngle(double xInput, double yInput, double zx, double zy) {
+        // restrict inputs to [-1, 1].
+        JoystickUtil.clamp(xInput, -1, 1);
+        JoystickUtil.clamp(yInput, -1, 1);
+        JoystickUtil.clamp(zx, -1, 1);
+        JoystickUtil.clamp(zy, -1, 1);
+
         // This mode cannot be used while not field oriented.
         if (!mFieldOriented) {
-            driveStandard(xSpeed, ySpeed, ySpeed);
+            driveStandard(xInput, yInput, yInput);
             return;
         }
-        if (!(zx == 0 && zy == 0)) {
-            mDesiredHeading = new Rotation2d(zx, zy); // yay atan2 constructor!
-        }
-        SmartDashboard.putNumber("desiredHeading", mDesiredHeading.getRadians());
-        SmartDashboard.putNumber("heading", Math.atan2(zx, zy));
 
-        setWheelSpeeds(
+        //
+        // The heading should be aquired in the following priorities:
+        // * Joystick heading
+        // * Target
+        // * heading 0 (forwards from driver) or default heading to be usefull in the game.
+        //
+
+        if (!(zx == 0 && zy == 0)) mDesiredHeading = new Rotation2d(Math.atan2(zx, zy));
+        else if (mTargetLock) mDesiredHeading = mTargetLockHeading;
+        else mDesiredHeading = new Rotation2d(); // forwards from driver.
+
+        SmartDashboard.putNumber("goal", mDesiredHeading.getRadians());
+        SmartDashboard.putNumber("heading", getHeading().getRadians());
+
+        xInput *= kMaxTranslationVelocity;
+        yInput *= kMaxTranslationVelocity;
+        Vector2d input = new Vector2d(xInput, yInput);
+        input.rotate(-getHeading().getDegrees());
+
+        MecanumDriveWheelSpeeds wheelSpeeds =
                 mKinematics.toWheelSpeeds(
                         new ChassisSpeeds(
-                                xSpeed * kMaxTranslationVelocity,
-                                ySpeed * kMaxTranslationVelocity,
-                                /* PID is profiled, so no need to multiply to adjust speed */
+                                input.x,
+                                input.y,
                                 mThetaPID.calculate(
-                                        getHeading().getRadians(), mDesiredHeading.getRadians()))));
+                                        getHeading().getRadians(), mDesiredHeading.getRadians())));
+        wheelSpeeds.desaturate(kMaxTranslationVelocity);
+
+        setWheelSpeeds(wheelSpeeds);
     }
 
     public void driveStandard(double xSpeed, double ySpeed, double zSpeed) {
@@ -138,11 +173,6 @@ public class Drivetrain extends SubsystemBase {
     /** @param fieldOriented Whether to drive field oriented or robot oriented. */
     public void setFieldOriented(boolean fieldOriented) {
         mFieldOriented = fieldOriented;
-    }
-
-    /** @param protectHeading Wheter to attempt to maintain a heading while not turning. */
-    public void setHeadingProtection(boolean protectHeading) {
-        mProtectHeading = protectHeading;
     }
 
     /** Sets the idle mode to coast. */
@@ -171,6 +201,8 @@ public class Drivetrain extends SubsystemBase {
 
     /** @param targetSpeeds The wheel speeds to have the robot attempt to achieve. */
     public void setWheelSpeeds(MecanumDriveWheelSpeeds targetSpeeds) {
+        SmartDashboard.putNumber("wheelvelocitygoal", targetSpeeds.frontLeftMetersPerSecond);
+        SmartDashboard.putNumber("wheelvelocityvalue", mMotors.get(0).getEncoder().getVelocity());
         targetSpeeds.desaturate(kMaxTranslationVelocity);
         List<Double> wheelSpeeds =
                 List.of(
@@ -190,11 +222,6 @@ public class Drivetrain extends SubsystemBase {
     // GETTERS
     //
 
-    /** @return If the robot will protect its heading. */
-    public boolean isProtectingHeading() {
-        return mProtectHeading;
-    }
-
     /** @return If the robot is driving field oriented. */
     public boolean isFieldOriented() {
         return mFieldOriented;
@@ -207,7 +234,12 @@ public class Drivetrain extends SubsystemBase {
 
     /** @return The robot's heading angle. */
     public Rotation2d getHeading() {
-        return mPigeon.getRotation2d();
+        // return mPigeon.getRotation2d();
+        double rads = mPigeon.getRotation2d().getRadians();
+
+        while (rads > Math.PI) rads -= 2 * Math.PI;
+        while (rads < -Math.PI) rads += 2 * Math.PI;
+        return new Rotation2d(rads);
     }
 
     /** @return The current wheel speeds. */
