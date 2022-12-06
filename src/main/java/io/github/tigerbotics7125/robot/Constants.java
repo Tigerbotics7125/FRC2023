@@ -24,11 +24,11 @@ public class Constants {
 
     public static class Drivetrain {
 
-        public static final double kThetaP = 100; // proportional; effort = error * p
+        public static final double kThetaP = 3; // proportional; effort = error * p
         public static final double kThetaI = 0; // integral; effort = error area * i
-        public static final double kThetaD = 0; // derivative;  effort = de/dt * d
-        public static final double kMaxThetaVelocity = 15; // meters / seconds
-        public static final double kMaxThetaAcceleration = 10; // meters / seconds^2
+        public static final double kThetaD = .001; // derivative;  effort = de/dt * d
+        public static final double kMaxThetaVelocity = 4 * Math.PI; // radians / seconds
+        public static final double kMaxThetaAcceleration = 8 * Math.PI; // radians / seconds^2
         public static final ProfiledPIDController kThetaPIDController =
                 new ProfiledPIDController(
                         kThetaP,
@@ -37,6 +37,9 @@ public class Constants {
                         new TrapezoidProfile.Constraints(kMaxThetaVelocity, kMaxThetaAcceleration));
         public static final double kMaxTranslationVelocity =
                 Units.feetToMeters(15); // meters / second
+        public static final double kWheelPGain = 1;
+        public static final double kWheelIGain = 0;
+        public static final double kWheelDGain = 0;
 
         public static final double kAmbiguityThreshold = 0.2;
 
