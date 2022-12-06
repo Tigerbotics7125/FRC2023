@@ -15,7 +15,6 @@ import io.github.tigerbotics7125.tigerlib.input.trigger.Trigger;
 
 import edu.wpi.first.math.geometry.Pose2d;
 import edu.wpi.first.math.geometry.Rotation2d;
-import edu.wpi.first.math.geometry.Transform2d;
 import edu.wpi.first.wpilibj.RobotController;
 import edu.wpi.first.wpilibj.RobotState;
 import edu.wpi.first.wpilibj.smartdashboard.Field2d;
@@ -41,7 +40,10 @@ public class RobotContainer {
 
     }
 
-    private void initDriver() {}
+    private void initDriver() {
+        // mDriver.leftY().invert();
+        // mDriver.rightY().invert();
+    }
 
     private void initOperator() {}
 
@@ -60,8 +62,8 @@ public class RobotContainer {
                             mDrivetrain.driveFaceAngle(
                                     mDriver.leftY().get(),
                                     -mDriver.leftX().get(),
-                                    mDriver.rightX().get(),
-                                    -mDriver.rightY().get());
+                                    -mDriver.rightX().get(),
+                                    mDriver.rightY().get());
                         },
                         mDrivetrain));
     }
@@ -71,27 +73,20 @@ public class RobotContainer {
     }
 
     public void simulationPeriodic() {
-        mField.setRobotPose(mDrivetrain.getPose());
-        mField.getObject("translation")
+        Pose2d robotPose = mDrivetrain.getPose();
+        mField.setRobotPose(robotPose);
+        mField.getObject("LeftJoystick")
                 .setPose(
-                        mField.getRobotPose()
-                                .plus(
-                                        new Transform2d(
-                                                new Pose2d(),
-                                                new Pose2d(
-                                                        mDriver.leftY().get(),
-                                                        -mDriver.leftX().get(),
-                                                        new Rotation2d()))));
-        mField.getObject("heading")
+                        new Pose2d(
+                                robotPose.getX() + mDriver.leftY().get(),
+                                robotPose.getY() - mDriver.leftX().get(),
+                                new Rotation2d()));
+        mField.getObject("RightJoystick")
                 .setPose(
-                        mField.getRobotPose()
-                                .plus(
-                                        new Transform2d(
-                                                new Pose2d(),
-                                                new Pose2d(
-                                                        mDriver.rightX().get(),
-                                                        -mDriver.rightY().get(),
-                                                        new Rotation2d()))));
+                        new Pose2d(
+                                robotPose.getX() + mDriver.rightY().get(),
+                                robotPose.getY() - mDriver.rightX().get(),
+                                new Rotation2d()));
         SmartDashboard.putData(mField);
     }
 }

@@ -13,7 +13,58 @@
         }
       },
       "/SmartDashboard/Field": {
+        "LeftJoystick": {
+          "arrows": false,
+          "image": "E:\\code\\FRC2023\\greenDot.png",
+          "length": 0.20000000298023224,
+          "selectable": false,
+          "weight": 0.0,
+          "width": 0.20000000298023224
+        },
+        "RightJoystick": {
+          "arrows": false,
+          "image": "E:\\code\\FRC2023\\redDot.png",
+          "length": 0.20000000298023224,
+          "selectable": false,
+          "weight": 0.0,
+          "width": 0.20000000298023224
+        },
+        "Robot": {
+          "arrowColor": [
+            1.0,
+            1.0,
+            1.0,
+            255.0
+          ],
+          "arrowWeight": 3.0,
+          "color": [
+            1.0,
+            1.0,
+            1.0,
+            255.0
+          ],
+          "weight": 3.0
+        },
+        "bottom": 900,
+        "heading": {
+          "image": "E:\\code\\FRC2023\\blueDot.png",
+          "length": 0.30000001192092896,
+          "width": 0.30000001192092896
+        },
+        "height": 8.229599952697754,
+        "image": "E:\\code\\FRC2023\\2022-field.png",
+        "left": 74,
+        "right": 1774,
+        "top": 50,
+        "translation": {
+          "image": "E:\\code\\FRC2023\\greenDot.png",
+          "length": 0.30000001192092896,
+          "style": "Box/Image",
+          "width": 0.30000001192092896
+        },
+        "width": 16.459199905395508,
         "window": {
+          "name": "Field2d",
           "visible": true
         }
       }
@@ -52,7 +103,7 @@
               "min": -3.14
             }
           ],
-          "height": 247,
+          "height": 167,
           "name": "Heading",
           "series": [
             {
@@ -95,7 +146,7 @@
               "label": "Velocity (mps)"
             }
           ],
-          "height": 247,
+          "height": 167,
           "lockPrevX": true,
           "name": "Wheel Velocity",
           "series": [
