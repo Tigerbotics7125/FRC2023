@@ -15,17 +15,31 @@
       "/SmartDashboard/Field": {
         "LeftJoystick": {
           "arrows": false,
-          "image": "E:\\code\\FRC2023\\greenDot.png",
-          "length": 0.20000000298023224,
+          "image": "E:\\code\\FRC2023\\redDot.png",
+          "length": 0.10000000149011612,
           "selectable": false,
           "weight": 0.0,
-          "width": 0.20000000298023224
+          "width": 0.10000000149011612
+        },
+        "LeftJoystickMapped": {
+          "arrows": false,
+          "image": "E:\\code\\FRC2023\\purpDot.png",
+          "length": 0.20000000298023224,
+          "weight": 0.0,
+          "width": 0.019999999552965164
         },
         "RightJoystick": {
           "arrows": false,
           "image": "E:\\code\\FRC2023\\redDot.png",
-          "length": 0.20000000298023224,
+          "length": 0.10000000149011612,
           "selectable": false,
+          "weight": 0.0,
+          "width": 0.10000000149011612
+        },
+        "RightJoystickMapped": {
+          "arrows": false,
+          "image": "E:\\code\\FRC2023\\cyanDot.png",
+          "length": 0.20000000298023224,
           "weight": 0.0,
           "width": 0.20000000298023224
         },

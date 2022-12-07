@@ -12,7 +12,9 @@ import io.github.tigerbotics7125.robot.subsystem.Drivetrain;
 import io.github.tigerbotics7125.robot.subsystem.Vision;
 import io.github.tigerbotics7125.tigerlib.input.controller.XboxController;
 import io.github.tigerbotics7125.tigerlib.input.trigger.Trigger;
+import io.github.tigerbotics7125.tigerlib.util.JoystickUtil;
 
+import edu.wpi.first.math.Pair;
 import edu.wpi.first.math.geometry.Pose2d;
 import edu.wpi.first.math.geometry.Rotation2d;
 import edu.wpi.first.wpilibj.RobotController;
@@ -54,13 +56,17 @@ public class RobotContainer {
         mDrivetrain.setDefaultCommand(
                 new RunCommand(
                         () -> {
-                            // mDriver.rightX().setCleaner((x) -> JoystickUtil.deadband(x, .5));
-                            // mDriver.rightY().setCleaner((x) -> JoystickUtil.deadband(x, .5));
+                            Pair<Double, Double> leftJoystick =
+                                    JoystickUtil.mapToCircle(
+                                            mDriver.leftX().get(), mDriver.leftY().get());
+                            Pair<Double, Double> rightJoystick =
+                                    JoystickUtil.mapToCircle(
+                                            mDriver.rightX().get(), mDriver.rightY().get());
                             mDrivetrain.driveFaceAngle(
-                                    mDriver.leftY().get(),
-                                    -mDriver.leftX().get(),
-                                    -mDriver.rightX().get(),
-                                    mDriver.rightY().get());
+                                    leftJoystick.getSecond(),
+                                    leftJoystick.getFirst(),
+                                    rightJoystick.getFirst(),
+                                    rightJoystick.getSecond());
                         },
                         mDrivetrain));
     }
@@ -76,13 +82,29 @@ public class RobotContainer {
                 .setPose(
                         new Pose2d(
                                 robotPose.getX() + mDriver.leftY().get(),
-                                robotPose.getY() - mDriver.leftX().get(),
+                                robotPose.getY() + mDriver.leftX().get(),
                                 new Rotation2d()));
         mField.getObject("RightJoystick")
                 .setPose(
                         new Pose2d(
                                 robotPose.getX() + mDriver.rightY().get(),
-                                robotPose.getY() - mDriver.rightX().get(),
+                                robotPose.getY() + mDriver.rightX().get(),
+                                new Rotation2d()));
+        Pair<Double, Double> leftJoystick =
+                JoystickUtil.mapToCircle(mDriver.leftX().get(), mDriver.leftY().get());
+        Pair<Double, Double> rightJoystick =
+                JoystickUtil.mapToCircle(mDriver.rightX().get(), mDriver.rightY().get());
+        mField.getObject("LeftJoystickMapped")
+                .setPose(
+                        new Pose2d(
+                                robotPose.getX() + leftJoystick.getSecond(),
+                                robotPose.getY() + leftJoystick.getFirst(),
+                                new Rotation2d()));
+        mField.getObject("RightJoystickMapped")
+                .setPose(
+                        new Pose2d(
+                                robotPose.getX() + rightJoystick.getSecond(),
+                                robotPose.getY() + rightJoystick.getFirst(),
                                 new Rotation2d()));
         SmartDashboard.putData(mField);
     }
