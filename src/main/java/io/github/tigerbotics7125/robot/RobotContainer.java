@@ -40,10 +40,7 @@ public class RobotContainer {
 
     }
 
-    private void initDriver() {
-        // mDriver.leftY().invert();
-        // mDriver.rightY().invert();
-    }
+    private void initDriver() {}
 
     private void initOperator() {}
 

@@ -10,6 +10,7 @@ import static io.github.tigerbotics7125.robot.Constants.Drivetrain.*;
 import io.github.tigerbotics7125.robot.Robot;
 import io.github.tigerbotics7125.tigerlib.util.JoystickUtil;
 
+import edu.wpi.first.math.Pair;
 import edu.wpi.first.math.controller.ProfiledPIDController;
 import edu.wpi.first.math.estimator.MecanumDrivePoseEstimator;
 import edu.wpi.first.math.geometry.Pose2d;
@@ -131,6 +132,72 @@ public class Drivetrain extends SubsystemBase {
             return;
         }
 
+        // clean up z input to react as a circle rather than a 90deg rotated square
+        int quadrent = 1;
+        if (zx > 0 && zy > 0) quadrent = 1;
+        else if (zx < 0 && zy > 0) quadrent = 2;
+        else if (zx < 0 && zy < 0) quadrent = 3;
+        else if (zx > 0 && zy < 0) quadrent = 4;
+
+        // compensates a joysticks diamond input into the typically thought about square.
+        // https://www.desmos.com/calculator/j8ulytknzn for more info.
+        Pair<Double, Double> zInput =
+                switch (quadrent) {
+                    case 1 -> {
+                        double a = 1;
+                        double b = 1;
+                        double c = -1;
+                        double d =
+                                Math.abs((a * zx) + (b * zy) - c)
+                                        / Math.sqrt(Math.pow(a, 2) + Math.pow(b, 2));
+
+                        double x = zx / (d + zx);
+                        double y = zy / (d + zy);
+
+                        yield Pair.of(x, y);
+                    }
+                    case 2 -> {
+                        double a = 1;
+                        double b = -1;
+                        double c = 1;
+                        double d =
+                                Math.abs((a * zx) + (b * zy) - c)
+                                        / Math.sqrt(Math.pow(a, 2) + Math.pow(b, 2));
+
+                        double x = zx / (d - zx);
+                        double y = zy / (d + zy);
+
+                        yield Pair.of(x, y);
+                    }
+                    case 3 -> {
+                        double a = 1;
+                        double b = 1;
+                        double c = 1;
+                        double d =
+                                Math.abs((a * zx) + (b * zy) - c)
+                                        / Math.sqrt(Math.pow(a, 2) + Math.pow(b, 2));
+
+                        double x = zx / (d - zx);
+                        double y = zy / (d - zy);
+
+                        yield Pair.of(x, y);
+                    }
+                    case 4 -> {
+                        double a = -1;
+                        double b = 1;
+                        double c = 1;
+                        double d =
+                                Math.abs((a * zx) + (b * zy) - c)
+                                        / Math.sqrt(Math.pow(a, 2) + Math.pow(b, 2));
+
+                        double x = zx / (d - zx);
+                        double y = zy / (d + zy);
+
+                        yield Pair.of(x, y);
+                    }
+                    default -> Pair.of(0.0, 0.0);
+                };
+
         //
         // The heading should be aquired in the following priorities:
         // * Joystick heading
@@ -138,7 +205,8 @@ public class Drivetrain extends SubsystemBase {
         // * heading 0 (forwards from driver) or default heading to be usefull in the game.
         //
 
-        if (!(zx == 0 && zy == 0)) mDesiredHeading = new Rotation2d(Math.atan2(zx, zy));
+        if (!(zInput.getFirst() == 0.0 && zInput.getSecond() == 0.0))
+            mDesiredHeading = new Rotation2d(Math.atan2(zInput.getFirst(), zInput.getSecond()));
         else if (mTargetLock) mDesiredHeading = mTargetLockHeading;
         else mDesiredHeading = new Rotation2d(); // forwards from driver.
 
