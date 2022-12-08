@@ -8,7 +8,6 @@ package io.github.tigerbotics7125.robot.subsystem;
 import static io.github.tigerbotics7125.robot.Constants.Drivetrain.*;
 
 import io.github.tigerbotics7125.robot.Robot;
-import io.github.tigerbotics7125.tigerlib.util.JoystickUtil;
 
 import edu.wpi.first.math.controller.ProfiledPIDController;
 import edu.wpi.first.math.estimator.MecanumDrivePoseEstimator;
@@ -32,6 +31,11 @@ import java.util.List;
 import org.photonvision.targeting.PhotonTrackedTarget;
 
 public class Drivetrain extends SubsystemBase {
+    public enum TurningMode {
+        FACE_ANGLE,
+        NORMAL
+    }
+
     final List<CANSparkMax> mMotors;
     final WPI_PigeonIMU mPigeon;
 
@@ -40,6 +44,7 @@ public class Drivetrain extends SubsystemBase {
 
     final ProfiledPIDController mThetaPID = kThetaPIDController;
     Rotation2d mDesiredHeading = new Rotation2d();
+    TurningMode mTurningMode = kTurningModeDefault;
 
     boolean mFieldOriented = kFieldOrientedDefault;
 
@@ -82,15 +87,14 @@ public class Drivetrain extends SubsystemBase {
 
     @Override
     public void periodic() {
-        System.out.println(getWheelSpeeds());
-        System.out.println(getHeading());
-        System.out.println();
         mPoseEstimator.update(getHeading(), getWheelSpeeds());
     }
 
     @Override
     public void simulationPeriodic() {
+        // Update motors.
         REVPhysicsSim.getInstance().run();
+        // Update heading, (Not accurate, but functional).
         var deg =
                 Units.radiansToDegrees(
                                 mKinematics.toChassisSpeeds(getWheelSpeeds()).omegaRadiansPerSecond)
@@ -105,54 +109,49 @@ public class Drivetrain extends SubsystemBase {
     }
 
     public void resetGyro() {
-        mPigeon.reset();
+        mPigeon.setFusedHeading(0);
         mDesiredHeading = getHeading();
     }
 
     public void feedVisionTarget(PhotonTrackedTarget target) {
         // om nom nom
 
-        if (target.getPoseAmbiguity() > kAmbiguityThreshold) return;
     }
 
     /**
      * @param xInput Input in the forwards direction. [-1, 1]
-     * @param yInput Input in the left direction. [-1, 1]
-     * @param zx X axis of the desired heading. [-1, 1]
-     * @param zy Y axis of the desired heading. [-1, 1]
+     * @param y Input in the left direction. [-1, 1]
+     * @param z_x X axis of the desired heading AND turning input. [-1, 1]
+     * @param z_y Y axis of the desired heading. [-1, 1]
      */
-    public void driveFaceAngle(double xInput, double yInput, double zx, double zy) {
-        // restrict inputs to [-1, 1].
-        JoystickUtil.clamp(xInput, -1, 1);
-        JoystickUtil.clamp(yInput, -1, 1);
-        JoystickUtil.clamp(zx, -1, 1);
-        JoystickUtil.clamp(zy, -1, 1);
+    public void drive(double x, double y, double z_x, double z_y) {
 
-        // This mode cannot be used while not field oriented.
-        if (!mFieldOriented) {
-            driveStandard(xInput, yInput, yInput);
-            return;
-        }
-
-        //
-        // The heading should be aquired in the following priorities:
-        // * Joystick heading
-        // * Target
-        // * heading 0 (forwards from driver) or default heading to be usefull in the game.
-        //
-
-        if (!(zx == 0.0 && zy == 0.0)) mDesiredHeading = new Rotation2d(Math.atan2(zx, zy));
-        else if (mTargetLock) mDesiredHeading = mTargetLockHeading;
-        else mDesiredHeading = new Rotation2d(); // forwards from driver.
+        // determine desired heading
+        mDesiredHeading =
+                switch (mTurningMode) {
+                    case NORMAL -> {
+                        z_y = -1 * Math.abs(z_x) + 1;
+                        yield new Rotation2d(Math.atan2(z_x, z_y));
+                    }
+                    case FACE_ANGLE -> {
+                        if (!(z_x == 0.0 && z_y == 0.0)) yield new Rotation2d(Math.atan2(z_x, z_y));
+                        else if (mTargetLock) yield mTargetLockHeading;
+                        else yield kDefaultHeading;
+                    }
+                    default -> {
+                        yield new Rotation2d();
+                    }
+                };
 
         SmartDashboard.putNumber("goal", mDesiredHeading.getRadians());
         SmartDashboard.putNumber("heading", getHeading().getRadians());
+        SmartDashboard.putString("TurningMode", mTurningMode.name());
 
-        xInput *= kMaxTranslationVelocity;
-        yInput *= kMaxTranslationVelocity;
-        Vector2d input = new Vector2d(xInput, yInput);
-        input.rotate(-getHeading().getDegrees());
+        Vector2d input = new Vector2d(x * kMaxTranslationVelocity, y * kMaxTranslationVelocity);
+        // Rotate inputs for field oriented driving.
+        if (mFieldOriented) input.rotate(-getHeading().getDegrees());
 
+        // Convert chassis speeds to individual wheel speeds.
         MecanumDriveWheelSpeeds wheelSpeeds =
                 mKinematics.toWheelSpeeds(
                         new ChassisSpeeds(
@@ -160,13 +159,10 @@ public class Drivetrain extends SubsystemBase {
                                 input.y,
                                 mThetaPID.calculate(
                                         getHeading().getRadians(), mDesiredHeading.getRadians())));
+        // Ensure wheels speeds are below max wheel (same as chassis translation) velocity.
         wheelSpeeds.desaturate(kMaxTranslationVelocity);
 
         setWheelSpeeds(wheelSpeeds);
-    }
-
-    public void driveStandard(double xSpeed, double ySpeed, double zSpeed) {
-        setWheelSpeeds(mKinematics.toWheelSpeeds(new ChassisSpeeds(xSpeed, ySpeed, zSpeed)));
     }
 
     //
@@ -218,6 +214,15 @@ public class Drivetrain extends SubsystemBase {
             mMotors.get(i)
                     .getPIDController()
                     .setReference(wheelSpeeds.get(i), ControlType.kVelocity);
+        }
+    }
+
+    /** Toggle between face angle and normal turning. */
+    public void toggleTurnMode() {
+        if (mTurningMode != TurningMode.NORMAL) {
+            mTurningMode = TurningMode.NORMAL;
+        } else {
+            mTurningMode = kTurningModeDefault;
         }
     }
 

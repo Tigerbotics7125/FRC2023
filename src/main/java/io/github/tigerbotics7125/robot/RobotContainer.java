@@ -7,9 +7,9 @@ package io.github.tigerbotics7125.robot;
 
 import static io.github.tigerbotics7125.robot.Constants.OperatorInterface.kDriverPort;
 import static io.github.tigerbotics7125.robot.Constants.OperatorInterface.kOperatorPort;
+import static io.github.tigerbotics7125.tigerlib.input.trigger.Trigger.ActivationCondition.*;
 
 import io.github.tigerbotics7125.robot.subsystem.Drivetrain;
-import io.github.tigerbotics7125.robot.subsystem.Vision;
 import io.github.tigerbotics7125.tigerlib.input.controller.XboxController;
 import io.github.tigerbotics7125.tigerlib.input.trigger.Trigger;
 import io.github.tigerbotics7125.tigerlib.util.JoystickUtil;
@@ -21,6 +21,7 @@ import edu.wpi.first.wpilibj.RobotController;
 import edu.wpi.first.wpilibj.RobotState;
 import edu.wpi.first.wpilibj.smartdashboard.Field2d;
 import edu.wpi.first.wpilibj.smartdashboard.SmartDashboard;
+import edu.wpi.first.wpilibj2.command.InstantCommand;
 import edu.wpi.first.wpilibj2.command.RunCommand;
 
 public class RobotContainer {
@@ -29,7 +30,7 @@ public class RobotContainer {
     Trigger mRioUserButton = new Trigger(RobotController::getUserButton);
 
     Drivetrain mDrivetrain = new Drivetrain();
-    Vision mVision = new Vision();
+    // Vision mVision = new Vision();
 
     Field2d mField = new Field2d();
 
@@ -42,7 +43,17 @@ public class RobotContainer {
 
     }
 
-    private void initDriver() {}
+    private void initDriver() {
+        mDriver.rb()
+                .activate(ON_RISING)
+                .trigger(
+                        new InstantCommand(
+                                () -> {
+                                    mDrivetrain.toggleTurnMode();
+                                    System.out.println("turningTrigger");
+                                }));
+        mDriver.start().activate(ON_RISING).trigger(mDrivetrain::resetGyro);
+    }
 
     private void initOperator() {}
 
@@ -62,7 +73,7 @@ public class RobotContainer {
                             Pair<Double, Double> rightJoystick =
                                     JoystickUtil.mapToCircle(
                                             mDriver.rightX().get(), mDriver.rightY().get());
-                            mDrivetrain.driveFaceAngle(
+                            mDrivetrain.drive(
                                     leftJoystick.getSecond(),
                                     leftJoystick.getFirst(),
                                     rightJoystick.getFirst(),
@@ -72,7 +83,7 @@ public class RobotContainer {
     }
 
     public void periodic() {
-        mVision.getTargets().forEach(mDrivetrain::feedVisionTarget);
+        // mVision.getTargets().forEach(mDrivetrain::feedVisionTarget);
     }
 
     public void simulationPeriodic() {

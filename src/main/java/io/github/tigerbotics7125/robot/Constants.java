@@ -5,9 +5,12 @@
  */
 package io.github.tigerbotics7125.robot;
 
+import io.github.tigerbotics7125.robot.subsystem.Drivetrain.TurningMode;
+
 import edu.wpi.first.math.Matrix;
 import edu.wpi.first.math.VecBuilder;
 import edu.wpi.first.math.controller.ProfiledPIDController;
+import edu.wpi.first.math.geometry.Rotation2d;
 import edu.wpi.first.math.geometry.Translation2d;
 import edu.wpi.first.math.numbers.N1;
 import edu.wpi.first.math.numbers.N3;
@@ -22,36 +25,45 @@ public class Constants {
         public static final int kOperatorPort = 1;
     }
 
-    public static class Drivetrain {
-
-        public static final double kThetaP = 3; // proportional; effort = error * p
-        public static final double kThetaI = 0; // integral; effort = error area * i
-        public static final double kThetaD = .001; // derivative;  effort = de/dt * d
-        public static final double kMaxThetaVelocity = 4 * Math.PI; // radians / seconds
-        public static final double kMaxThetaAcceleration = 8 * Math.PI; // radians / seconds^2
-        public static final ProfiledPIDController kThetaPIDController =
-                new ProfiledPIDController(
-                        kThetaP,
-                        kThetaI,
-                        kThetaD,
-                        new TrapezoidProfile.Constraints(kMaxThetaVelocity, kMaxThetaAcceleration));
-        public static final double kMaxTranslationVelocity =
-                Units.feetToMeters(15); // meters / second
-        public static final double kWheelPGain = 1;
-        public static final double kWheelIGain = 0;
-        public static final double kWheelDGain = 0;
-
+    public static class Vision {
         public static final double kAmbiguityThreshold = 0.2;
+    }
 
+    public static class Drivetrain {
+        // Driving Options
         public static final boolean kFieldOrientedDefault = true;
-        public static final boolean kProtectHeadingDefault = true;
+        public static final Rotation2d kDefaultHeading = new Rotation2d();
 
+        public static final TurningMode kTurningModeDefault = TurningMode.FACE_ANGLE;
+
+        // CAN IDs
         public static final int kFLID = 1;
         public static final int kRLID = 2;
         public static final int kFRID = 3;
         public static final int kRRID = 4;
         public static final int kPigeonID = 1;
 
+        // Characteristics
+        public static final double kMaxTranslationVelocity =
+                Units.feetToMeters(15); // meters / second
+        public static final double kMaxThetaVelocity = 4 * Math.PI; // radians / seconds
+        public static final double kMaxThetaAcceleration = 8 * Math.PI; // radians / seconds^2
+
+        // PID
+        public static final double kThetaPGain = 3; // proportional; effort = error * p
+        public static final double kThetaIGain = 0; // integral; effort = error area * i
+        public static final double kThetaDGain = .001; // derivative;  effort = de/dt * d
+        public static final ProfiledPIDController kThetaPIDController =
+                new ProfiledPIDController(
+                        kThetaPGain,
+                        kThetaIGain,
+                        kThetaDGain,
+                        new TrapezoidProfile.Constraints(kMaxThetaVelocity, kMaxThetaAcceleration));
+        public static final double kWheelPGain = 1;
+        public static final double kWheelIGain = 0;
+        public static final double kWheelDGain = 0;
+
+        // Motor Values
         public static final MotorType kMotorType = MotorType.kBrushless;
         public static final int kStallCurrentLimit = 44; // Amps
         public static final int kFreeSpeedCurrentLimit = 2; // Amps
@@ -61,6 +73,7 @@ public class Constants {
         public static final double kVelocityConversionFactor =
                 1.0 / kGearRatio; // input RPM to output RPM.
 
+        // Kinematic Values
         public static final Translation2d kFLOffset =
                 new Translation2d(Units.inchesToMeters(10.18), Units.inchesToMeters(-10.857));
         public static final Translation2d kRLOffset =
@@ -70,6 +83,7 @@ public class Constants {
         public static final Translation2d kRROffset =
                 new Translation2d(Units.inchesToMeters(-10.18), Units.inchesToMeters(10.857));
 
+        // Pose Estimation Values
         // std devs, 0 is perfectly trusted, increase to trust less.
         // state, or pose estimator std devs [x, y, theta]
         public static final Matrix<N3, N1> kStateStdDevs = VecBuilder.fill(.001, .001, .001);
