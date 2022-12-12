@@ -5,19 +5,21 @@
  */
 package io.github.tigerbotics7125.robot;
 
+import io.github.tigerbotics7125.robot.AprilTagLayout.Layout;
 import io.github.tigerbotics7125.robot.subsystem.Drivetrain.TurningMode;
 
 import edu.wpi.first.math.Matrix;
 import edu.wpi.first.math.VecBuilder;
 import edu.wpi.first.math.controller.ProfiledPIDController;
-import edu.wpi.first.math.geometry.Rotation2d;
-import edu.wpi.first.math.geometry.Translation2d;
+import edu.wpi.first.math.geometry.*;
 import edu.wpi.first.math.numbers.N1;
 import edu.wpi.first.math.numbers.N3;
 import edu.wpi.first.math.trajectory.TrapezoidProfile;
 import edu.wpi.first.math.util.Units;
 
 import com.revrobotics.CANSparkMaxLowLevel.MotorType;
+import java.util.List;
+import org.photonvision.PhotonTargetSortMode;
 
 public class Constants {
     public static class OperatorInterface {
@@ -26,6 +28,22 @@ public class Constants {
     }
 
     public static class Vision {
+        public static final Layout kTagLayout = Layout.RAPID_REACT;
+        public static final PhotonTargetSortMode kSortingMode = PhotonTargetSortMode.Centermost;
+        public static final String kCameraName = "piCam";
+        public static final double kCamDiagFOVDegrees = 67.0;
+        public static final Transform3d kCamToRobot =
+                new Transform3d(
+                                new Pose3d(), // robot
+                                new Pose3d(
+                                        0, 0, .5, new Rotation3d(0, Units.degreesToRadians(20), 0)))
+                        .inverse();
+        public static final double kMaxLEDRangeMeters =
+                Units.feetToMeters(30); // used for reflective.
+        public static final int kCamResWidth = 640;
+        public static final int kCamResHeight = 480;
+        public static final int kMinTargetArea = 10; // pixels^2 // used for reflective.
+
         public static final double kAmbiguityThreshold = 0.2;
     }
 
@@ -33,8 +51,10 @@ public class Constants {
         // Driving Options
         public static final boolean kFieldOrientedDefault = true;
         public static final Rotation2d kDefaultHeading = new Rotation2d();
-
         public static final TurningMode kTurningModeDefault = TurningMode.FACE_ANGLE;
+        public static final List<Integer> kTargetLockTags = List.of(40, 41, 42, 43, 50, 51, 52, 53);
+        public static final Pose2d kExampleTargetPose =
+                new Pose2d(16.4846 / 2.0, 8.1026 / 2.0, new Rotation2d()); // center of field
 
         // CAN IDs
         public static final int kFLID = 1;
@@ -46,13 +66,15 @@ public class Constants {
         // Characteristics
         public static final double kMaxTranslationVelocity =
                 Units.feetToMeters(15); // meters / second
-        public static final double kMaxThetaVelocity = 4 * Math.PI; // radians / seconds
-        public static final double kMaxThetaAcceleration = 8 * Math.PI; // radians / seconds^2
+        public static final double kMaxThetaVelocity = 5 * Math.PI; // radians / seconds
+        // reach max velocity in .5 seconds. (a = v2-v1/t)
+        public static final double kMaxThetaAcceleration =
+                kMaxThetaVelocity / .5; // radians / seconds^2
 
         // PID
-        public static final double kThetaPGain = 3; // proportional; effort = error * p
+        public static final double kThetaPGain = 4; // proportional; effort = error * p
         public static final double kThetaIGain = 0; // integral; effort = error area * i
-        public static final double kThetaDGain = .001; // derivative;  effort = de/dt * d
+        public static final double kThetaDGain = .01; // derivative;  effort = de/dt * d
         public static final ProfiledPIDController kThetaPIDController =
                 new ProfiledPIDController(
                         kThetaPGain,
@@ -86,11 +108,11 @@ public class Constants {
         // Pose Estimation Values
         // std devs, 0 is perfectly trusted, increase to trust less.
         // state, or pose estimator std devs [x, y, theta]
-        public static final Matrix<N3, N1> kStateStdDevs = VecBuilder.fill(.001, .001, .001);
+        public static final Matrix<N3, N1> kStateStdDevs = VecBuilder.fill(.1, .1, .1);
         // sensor (gyro and encoder) std devs
-        public static final Matrix<N1, N1> kLocalMeasurementStdDevs = VecBuilder.fill(.01);
+        public static final Matrix<N1, N1> kLocalMeasurementStdDevs = VecBuilder.fill(.05);
         // vision std devs [x, y, theta]
         public static final Matrix<N3, N1> kVisionMeasurementStdDevs =
-                VecBuilder.fill(.1, .1, .125);
+                VecBuilder.fill(.075, .075, .075);
     }
 }

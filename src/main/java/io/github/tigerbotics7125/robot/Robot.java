@@ -17,14 +17,13 @@ public class Robot extends TimedRobot {
     public void robotInit() {
         TigerLib.init();
         this.addPeriodic(kRobotContainer::periodic, kDefaultPeriod);
+        this.addPeriodic(TigerLib::periodic, kDefaultPeriod);
         if (Robot.isSimulation())
             this.addPeriodic(kRobotContainer::simulationPeriodic, kDefaultPeriod);
     }
 
     @Override
-    public void robotPeriodic() {
-        TigerLib.periodic();
-    }
+    public void robotPeriodic() {}
 
     @Override
     public void autonomousInit() {}

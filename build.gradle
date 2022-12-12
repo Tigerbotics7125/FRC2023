@@ -49,11 +49,12 @@ def includeDesktopSupport = true
 allprojects {
     repositories {
         maven { url 'https://jitpack.io' }
+        mavenLocal()
     }
 }
 
 dependencies {
-    implementation 'com.github.Tigerbotics7125:tigerlib:2023.0.0-beta-5.2'
+    implementation 'com.github.tigerbotics7125:tigerlib:2023.0.0-beta-6'
 
     implementation wpi.java.deps.wpilib()
     implementation wpi.java.vendor.java()

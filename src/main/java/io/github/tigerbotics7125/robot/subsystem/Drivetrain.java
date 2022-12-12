@@ -13,13 +13,16 @@ import edu.wpi.first.math.controller.ProfiledPIDController;
 import edu.wpi.first.math.estimator.MecanumDrivePoseEstimator;
 import edu.wpi.first.math.geometry.Pose2d;
 import edu.wpi.first.math.geometry.Rotation2d;
+import edu.wpi.first.math.geometry.Transform2d;
 import edu.wpi.first.math.kinematics.ChassisSpeeds;
 import edu.wpi.first.math.kinematics.MecanumDriveKinematics;
 import edu.wpi.first.math.kinematics.MecanumDriveWheelSpeeds;
 import edu.wpi.first.math.system.plant.DCMotor;
 import edu.wpi.first.math.util.Units;
+import edu.wpi.first.wpilibj.Timer;
 import edu.wpi.first.wpilibj.drive.Vector2d;
-import edu.wpi.first.wpilibj.smartdashboard.SmartDashboard;
+import edu.wpi.first.wpilibj2.command.Command;
+import edu.wpi.first.wpilibj2.command.RunCommand;
 import edu.wpi.first.wpilibj2.command.SubsystemBase;
 
 import com.ctre.phoenix.sensors.WPI_PigeonIMU;
@@ -28,12 +31,28 @@ import com.revrobotics.CANSparkMax.ControlType;
 import com.revrobotics.CANSparkMax.IdleMode;
 import com.revrobotics.REVPhysicsSim;
 import java.util.List;
-import org.photonvision.targeting.PhotonTrackedTarget;
+import java.util.function.DoubleSupplier;
 
 public class Drivetrain extends SubsystemBase {
     public enum TurningMode {
+        /**
+         * Standard concept of turning, you push left on the joystick, the bot rotates left until
+         * you return to center.
+         */
+        STANDARD,
+        /**
+         * Holds the current angle. Can be mildly dangerous if the robot is forced extremely outside
+         * of its desired heading.
+         */
+        HOLD,
+        /**
+         * As opposed to typical turning, this mode is designed to follow your joystick, for
+         * instance you push the joystick forwards and to the left, and the bot will face, forwards
+         * and to the left, it wont keep rotating, it will simply match your desired heading.
+         */
         FACE_ANGLE,
-        NORMAL
+        TARGET,
+        ;
     }
 
     final List<CANSparkMax> mMotors;
@@ -87,7 +106,7 @@ public class Drivetrain extends SubsystemBase {
 
     @Override
     public void periodic() {
-        mPoseEstimator.update(getHeading(), getWheelSpeeds());
+        mPoseEstimator.updateWithTime(Timer.getFPGATimestamp(), getHeading(), getWheelSpeeds());
     }
 
     @Override
@@ -98,7 +117,6 @@ public class Drivetrain extends SubsystemBase {
         var deg =
                 Units.radiansToDegrees(
                                 mKinematics.toChassisSpeeds(getWheelSpeeds()).omegaRadiansPerSecond)
-                        * kMaxThetaVelocity
                         * Robot.kDefaultPeriod;
         mPigeon.getSimCollection().addHeading(deg);
     }
@@ -108,18 +126,36 @@ public class Drivetrain extends SubsystemBase {
         mMotors.forEach(CANSparkMax::disable);
     }
 
-    public void resetGyro() {
-        mPigeon.setFusedHeading(0);
-        mDesiredHeading = getHeading();
-    }
-
-    public void feedVisionTarget(PhotonTrackedTarget target) {
-        // om nom nom
-
+    /**
+     * @param estimatedPose The estimated pose from vision target.
+     * @param timestamp The timestamp the measurement is from.
+     */
+    public void addVisionMeasurement(Pose2d estimatedPose, double timestamp) {
+        mPoseEstimator.addVisionMeasurement(estimatedPose, timestamp);
     }
 
     /**
-     * @param xInput Input in the forwards direction. [-1, 1]
+     * @param x Input in the forwards direction. [-1, 1]
+     * @param y Input in the left direction. [-1, 1]
+     * @param z_x X axis of the desired heading AND turning input. [-1, 1]
+     * @param z_y Y axis of the desired heading. [-1, 1]
+     * @return A command which will drive the robot based off of the suppliers given.
+     */
+    public Command drive(
+            DoubleSupplier x, DoubleSupplier y, DoubleSupplier z_x, DoubleSupplier z_y) {
+        return new RunCommand(
+                        () ->
+                                drive(
+                                        x.getAsDouble(),
+                                        y.getAsDouble(),
+                                        z_x.getAsDouble(),
+                                        z_y.getAsDouble()),
+                        this)
+                .perpetually();
+    }
+
+    /**
+     * @param x Input in the forwards direction. [-1, 1]
      * @param y Input in the left direction. [-1, 1]
      * @param z_x X axis of the desired heading AND turning input. [-1, 1]
      * @param z_y Y axis of the desired heading. [-1, 1]
@@ -127,25 +163,40 @@ public class Drivetrain extends SubsystemBase {
     public void drive(double x, double y, double z_x, double z_y) {
 
         // determine desired heading
+        boolean noZInput = false;
+        if (z_x == 0.0 && z_y == 0.0) {
+            noZInput = true;
+        }
         mDesiredHeading =
                 switch (mTurningMode) {
-                    case NORMAL -> {
-                        z_y = -1 * Math.abs(z_x) + 1;
-                        yield new Rotation2d(Math.atan2(z_x, z_y));
+                    case STANDARD -> {
+                        // Allows for standard roatation concept, but allows it to be controlled
+                        // by the PID controller, which will also keep it constrained.
+                        yield new Rotation2d(Math.atan2(z_x, -Math.abs(z_x) + 1))
+                                .rotateBy(getHeading());
+                    }
+                    case HOLD -> {
+                        yield mDesiredHeading;
                     }
                     case FACE_ANGLE -> {
-                        if (!(z_x == 0.0 && z_y == 0.0)) yield new Rotation2d(Math.atan2(z_x, z_y));
-                        else if (mTargetLock) yield mTargetLockHeading;
-                        else yield kDefaultHeading;
+                        if (noZInput) yield kDefaultHeading;
+                        else yield new Rotation2d(Math.atan2(z_x, z_y));
+                    }
+                    case TARGET -> {
+                        if (mTargetLock) yield mTargetLockHeading;
+
+                        Transform2d robotToTarget = new Transform2d(getPose(), kExampleTargetPose);
+
+                        // Law of sines used to find the rotation needed to face the target.
+                        yield new Rotation2d(
+                                robotToTarget.getY()
+                                        * Math.sin(Math.PI / 2)
+                                        / robotToTarget.getX());
                     }
                     default -> {
-                        yield new Rotation2d();
+                        yield kDefaultHeading;
                     }
                 };
-
-        SmartDashboard.putNumber("goal", mDesiredHeading.getRadians());
-        SmartDashboard.putNumber("heading", getHeading().getRadians());
-        SmartDashboard.putString("TurningMode", mTurningMode.name());
 
         Vector2d input = new Vector2d(x * kMaxTranslationVelocity, y * kMaxTranslationVelocity);
         // Rotate inputs for field oriented driving.
@@ -159,8 +210,6 @@ public class Drivetrain extends SubsystemBase {
                                 input.y,
                                 mThetaPID.calculate(
                                         getHeading().getRadians(), mDesiredHeading.getRadians())));
-        // Ensure wheels speeds are below max wheel (same as chassis translation) velocity.
-        wheelSpeeds.desaturate(kMaxTranslationVelocity);
 
         setWheelSpeeds(wheelSpeeds);
     }
@@ -168,6 +217,51 @@ public class Drivetrain extends SubsystemBase {
     //
     // SETTERS
     //
+
+    /** @param heading The heading to lock to. */
+    public void setTargetLockHeading(Rotation2d heading) {
+        mTargetLockHeading = heading;
+    }
+
+    /** Enable target locking. */
+    public void enableTargetLock() {
+        setTargetLock(true);
+    }
+
+    /** Disable target locking. */
+    public void disableTargetLock() {
+        setTargetLock(false);
+    }
+
+    /** Set target locking ability. */
+    public void setTargetLock(boolean targetLock) {
+        mTargetLock = targetLock;
+    }
+
+    /** Set the turning mode to {@link TurningMode#Target}. */
+    public void setTargetTurning() {
+        setTurningMode(TurningMode.TARGET);
+    }
+
+    /** Sets the turning mode to {@link TurningMode#STANDARD}. */
+    public void setStandardTurning() {
+        setTurningMode(TurningMode.STANDARD);
+    }
+
+    /** Sets the turning mode to {@link TurningMode#HOLD}. */
+    public void setHoldTurning() {
+        setTurningMode(TurningMode.HOLD);
+    }
+
+    /** Sets the turning mode to {@link TurningMode#FACE_ANGLE}. */
+    public void setFaceAngleTurning() {
+        setTurningMode(TurningMode.FACE_ANGLE);
+    }
+
+    /** @param turningMode {@link TurningMode} to set the drivetrain to. */
+    public void setTurningMode(TurningMode turningMode) {
+        mTurningMode = turningMode;
+    }
 
     /** @param fieldOriented Whether to drive field oriented or robot oriented. */
     public void setFieldOriented(boolean fieldOriented) {
@@ -190,19 +284,23 @@ public class Drivetrain extends SubsystemBase {
     }
 
     /**
-     * @param pose The new pose.
-     * @param heading The new heading.
+     * Tell the drivetrain where it is, this does not feed it an estimation, it blatently says, you
+     * are here rn.
+     *
+     * @param pose The pose.
+     * @param heading The heading.
      */
-    public void setPoseEstimation(Pose2d pose, Rotation2d heading) {
+    public void setPose(Pose2d pose, Rotation2d heading) {
         mPoseEstimator.resetPosition(pose, heading);
-        mPigeon.setFusedHeading(heading.getDegrees());
+        mMotors.forEach((motor) -> motor.getEncoder().setPosition(0));
     }
 
     /** @param targetSpeeds The wheel speeds to have the robot attempt to achieve. */
     public void setWheelSpeeds(MecanumDriveWheelSpeeds targetSpeeds) {
-        SmartDashboard.putNumber("wheelvelocitygoal", targetSpeeds.frontLeftMetersPerSecond);
-        SmartDashboard.putNumber("wheelvelocityvalue", mMotors.get(0).getEncoder().getVelocity());
+        // Ensure desired motor speeds are within acceptable values.
         targetSpeeds.desaturate(kMaxTranslationVelocity);
+
+        // Convert wheel speeds to a list, because it makes applying it easier.
         List<Double> wheelSpeeds =
                 List.of(
                         targetSpeeds.frontLeftMetersPerSecond,
@@ -217,13 +315,9 @@ public class Drivetrain extends SubsystemBase {
         }
     }
 
-    /** Toggle between face angle and normal turning. */
-    public void toggleTurnMode() {
-        if (mTurningMode != TurningMode.NORMAL) {
-            mTurningMode = TurningMode.NORMAL;
-        } else {
-            mTurningMode = kTurningModeDefault;
-        }
+    /** Reset heading to 0. */
+    public void resetGyro() {
+        mPigeon.reset();
     }
 
     //
