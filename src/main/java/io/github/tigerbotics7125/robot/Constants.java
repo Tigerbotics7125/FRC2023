@@ -29,7 +29,7 @@ public class Constants {
 
     public static class Vision {
         public static final Layout kTagLayout = Layout.RAPID_REACT;
-        public static final PhotonTargetSortMode kSortingMode = PhotonTargetSortMode.Centermost;
+        public static final PhotonTargetSortMode kSortingMode = PhotonTargetSortMode.Largest;
         public static final String kCameraName = "piCam";
         public static final double kCamDiagFOVDegrees = 67.0;
         public static final Transform3d kCamToRobot =
@@ -65,11 +65,11 @@ public class Constants {
 
         // Characteristics
         public static final double kMaxTranslationVelocity =
-                Units.feetToMeters(15); // meters / second
-        public static final double kMaxThetaVelocity = 5 * Math.PI; // radians / seconds
-        // reach max velocity in .5 seconds. (a = v2-v1/t)
+                Units.feetToMeters(13); // meters / second
+        public static final double kMaxThetaVelocity = 4 * Math.PI; // radians / seconds
+        // reach max velocity in seconds. (a = v2-v1/t)
         public static final double kMaxThetaAcceleration =
-                kMaxThetaVelocity / .5; // radians / seconds^2
+                kMaxThetaVelocity / .25; // radians / seconds^2
 
         // PID
         public static final double kThetaPGain = 4; // proportional; effort = error * p

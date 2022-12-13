@@ -13,7 +13,6 @@ import edu.wpi.first.math.controller.ProfiledPIDController;
 import edu.wpi.first.math.estimator.MecanumDrivePoseEstimator;
 import edu.wpi.first.math.geometry.Pose2d;
 import edu.wpi.first.math.geometry.Rotation2d;
-import edu.wpi.first.math.geometry.Transform2d;
 import edu.wpi.first.math.kinematics.ChassisSpeeds;
 import edu.wpi.first.math.kinematics.MecanumDriveKinematics;
 import edu.wpi.first.math.kinematics.MecanumDriveWheelSpeeds;
@@ -51,7 +50,6 @@ public class Drivetrain extends SubsystemBase {
          * and to the left, it wont keep rotating, it will simply match your desired heading.
          */
         FACE_ANGLE,
-        TARGET,
         ;
     }
 
@@ -172,26 +170,18 @@ public class Drivetrain extends SubsystemBase {
                     case STANDARD -> {
                         // Allows for standard roatation concept, but allows it to be controlled
                         // by the PID controller, which will also keep it constrained.
-                        yield new Rotation2d(Math.atan2(z_x, -Math.abs(z_x) + 1))
-                                .rotateBy(getHeading());
+                        if (mTargetLock && noZInput) yield mTargetLockHeading;
+                        else
+                            yield new Rotation2d(Math.atan2(z_x, -Math.abs(z_x) + 1))
+                                    .rotateBy(getHeading());
                     }
                     case HOLD -> {
                         yield mDesiredHeading;
                     }
                     case FACE_ANGLE -> {
+                        if (mTargetLock && noZInput) yield mTargetLockHeading;
                         if (noZInput) yield kDefaultHeading;
                         else yield new Rotation2d(Math.atan2(z_x, z_y));
-                    }
-                    case TARGET -> {
-                        if (mTargetLock) yield mTargetLockHeading;
-
-                        Transform2d robotToTarget = new Transform2d(getPose(), kExampleTargetPose);
-
-                        // Law of sines used to find the rotation needed to face the target.
-                        yield new Rotation2d(
-                                robotToTarget.getY()
-                                        * Math.sin(Math.PI / 2)
-                                        / robotToTarget.getX());
                     }
                     default -> {
                         yield kDefaultHeading;
@@ -218,29 +208,24 @@ public class Drivetrain extends SubsystemBase {
     // SETTERS
     //
 
-    /** @param heading The heading to lock to. */
-    public void setTargetLockHeading(Rotation2d heading) {
-        mTargetLockHeading = heading;
+    /** @param heading The heading to lock to. Set heading to null to cancel target lock. */
+    private void setTargetLock(Rotation2d heading) {
+        if (heading != null) {
+            mTargetLockHeading = heading;
+            mTargetLock = true;
+        } else {
+            mTargetLock = false;
+        }
     }
 
     /** Enable target locking. */
-    public void enableTargetLock() {
-        setTargetLock(true);
+    public void enableTargetLock(Rotation2d heading) {
+        setTargetLock(heading);
     }
 
     /** Disable target locking. */
     public void disableTargetLock() {
-        setTargetLock(false);
-    }
-
-    /** Set target locking ability. */
-    public void setTargetLock(boolean targetLock) {
-        mTargetLock = targetLock;
-    }
-
-    /** Set the turning mode to {@link TurningMode#Target}. */
-    public void setTargetTurning() {
-        setTurningMode(TurningMode.TARGET);
+        setTargetLock(null);
     }
 
     /** Sets the turning mode to {@link TurningMode#STANDARD}. */

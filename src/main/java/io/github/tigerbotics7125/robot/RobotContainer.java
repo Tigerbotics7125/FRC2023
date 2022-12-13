@@ -63,7 +63,6 @@ public class RobotContainer {
         mDriver.lb().trigger(mDrivetrain::setStandardTurning);
         mDriver.y().trigger(mDrivetrain::setHoldTurning);
         mDriver.rb().trigger(mDrivetrain::setFaceAngleTurning);
-        mDriver.a().trigger(mDrivetrain::setTargetTurning);
 
         mDriver.back().trigger(() -> correcting = true);
         mDriver.back().activate(ActivationCondition.ON_FALLING).trigger(() -> correcting = false);
@@ -118,6 +117,16 @@ public class RobotContainer {
 
         List<PhotonTrackedTarget> targets = result.getTargets();
 
+        // remove tags which are too ambiguous
+        List<PhotonTrackedTarget> ambiguousTags = new ArrayList<>();
+        targets.forEach(
+                (t) -> {
+                    if (t.getPoseAmbiguity() > kAmbiguityThreshold) {
+                        ambiguousTags.add(t);
+                    }
+                });
+        ambiguousTags.forEach(targets::remove);
+
         // Sort the targets in our predefined desired manner.
         targets.sort(kSortingMode.getComparator());
 
@@ -141,14 +150,13 @@ public class RobotContainer {
             Rotation2d faceTarget =
                     new Rotation2d(robotToTag.getY() * Math.sin(Math.PI / 2) / robotToTag.getX());
 
-            // mDrivetrain.setTargetLockHeading(robotPose.getRotation().rotateBy(faceTarget));
+            mDrivetrain.enableTargetLock(robotPose.getRotation().rotateBy(faceTarget));
+            mField.getObject("targetlock").setPose(tagPose);
         }
 
         // Update drivetrain odometry with pose derived from target(s).
         if (correcting) {
             for (PhotonTrackedTarget target : targets) {
-                if (target.getPoseAmbiguity() > kAmbiguityThreshold) continue;
-
                 mDrivetrain.addVisionMeasurement(
                         mVision.getRobotPoseFromTarget(target).toPose2d(),
                         result.getTimestampSeconds());
