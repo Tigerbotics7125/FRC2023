@@ -31,46 +31,36 @@ public class Vision extends SubsystemBase {
     SimVisionSystem mSimVision;
 
     public Vision() {
-        // use camera for vision tracking, not for driver vision.
-        mCam.setDriverMode(false);
+	// use camera for vision tracking, not for driver vision.
+	mCam.setDriverMode(false);
 
-        if (Robot.isSimulation()) {
-            // Create a sim camera system.
-            mSimVision =
-                    new SimVisionSystem(
-                            kCameraName,
-                            kCamDiagFOVDegrees,
-                            kCamToRobot,
-                            kMaxLEDRangeMeters,
-                            kCamResWidth,
-                            kCamResHeight,
-                            kMinTargetArea);
-            // Add targets to simulation.
-            for (AprilTag tag : mTagLayout.getTags()) {
-                mSimVision.addSimVisionTarget(
-                        new SimVisionTarget(
-                                tag.getPose(),
-                                Units.inchesToMeters(6),
-                                Units.inchesToMeters(6),
-                                tag.getID()));
-            }
-        }
+	if (Robot.isSimulation()) {
+	    // Create a sim camera system.
+	    mSimVision = new SimVisionSystem(kCameraName, kCamDiagFOVDegrees, kCamToRobot, kMaxLEDRangeMeters,
+		    kCamResWidth, kCamResHeight, kMinTargetArea);
+	    // Add targets to simulation.
+	    for (AprilTag tag : mTagLayout.getTags()) {
+		mSimVision.addSimVisionTarget(new SimVisionTarget(tag.getPose(), Units.inchesToMeters(6),
+			Units.inchesToMeters(6), tag.getID()));
+	    }
+	}
     }
 
     /** @return The {@link AprilTagLayout} used by the robot. */
     public AprilTagLayout getTagLayout() {
-        return mTagLayout;
+	return mTagLayout;
     }
 
     /** @return The latest result from the vision system. */
     public PhotonPipelineResult getLatestResult() {
-        return mCam.getLatestResult();
+	return mCam.getLatestResult();
     }
 
     /** SIM ONLY call to update the sim vision system. */
     public void feedRobotPose(Pose2d robotPose) {
-        if (Robot.isReal()) return;
-        mSimVision.processFrame(robotPose);
+	if (Robot.isReal())
+	    return;
+	mSimVision.processFrame(robotPose);
     }
 
     /**
@@ -78,13 +68,10 @@ public class Vision extends SubsystemBase {
      * @return The robots pose as known by the vision system.
      */
     public Pose3d getRobotPoseFromTarget(PhotonTrackedTarget target) {
-        Transform3d targetToCam = target.getBestCameraToTarget().inverse();
+	Transform3d targetToCam = target.getBestCameraToTarget().inverse();
 
-        Pose3d robotPose =
-                mTagLayout
-                        .getTagPose(target.getFiducialId())
-                        .transformBy(targetToCam)
-                        .transformBy(kCamToRobot);
-        return robotPose;
+	Pose3d robotPose = mTagLayout.getTagPose(target.getFiducialId()).transformBy(targetToCam)
+		.transformBy(kCamToRobot);
+	return robotPose;
     }
 }
