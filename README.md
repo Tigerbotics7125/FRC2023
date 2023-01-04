@@ -1,0 +1,1 @@
+[![Build](https://github.com/Tigerbotics7125/FRC2023/actions/workflows/CI.yaml/badge.svg?branch=main)](https://github.com/Tigerbotics7125/FRC2023/actions/workflows/CI.yaml) [![Lint](https://github.com/Tigerbotics7125/FRC2023/actions/workflows/Lint.yaml/badge.svg?branch=main)](https://github.com/Tigerbotics7125/FRC2023/actions/workflows/Lint.yaml)
