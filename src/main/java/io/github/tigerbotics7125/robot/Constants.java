@@ -5,11 +5,8 @@
  */
 package io.github.tigerbotics7125.robot;
 
-import java.util.List;
-
-import org.photonvision.PhotonTargetSortMode;
-
-import com.revrobotics.CANSparkMaxLowLevel.MotorType;
+import io.github.tigerbotics7125.robot.AprilTagLayout.Layout;
+import io.github.tigerbotics7125.robot.subsystem.Drivetrain.TurningMode;
 
 import edu.wpi.first.math.Matrix;
 import edu.wpi.first.math.VecBuilder;
@@ -22,8 +19,10 @@ import edu.wpi.first.math.util.Units;
 import edu.wpi.first.networktables.NetworkTable;
 import edu.wpi.first.networktables.NetworkTableInstance;
 import edu.wpi.first.networktables.StringTopic;
-import io.github.tigerbotics7125.robot.AprilTagLayout.Layout;
-import io.github.tigerbotics7125.robot.subsystem.Drivetrain.TurningMode;
+
+import com.revrobotics.CANSparkMaxLowLevel.MotorType;
+import java.util.List;
+import org.photonvision.PhotonTargetSortMode;
 
 public class Constants {
 
