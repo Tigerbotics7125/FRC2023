@@ -5,47 +5,15 @@
  */
 package io.github.tigerbotics7125.robot;
 
-import io.github.tigerbotics7125.tigerlib.TigerLib;
+import io.github.tigerbotics7125.tigerlib.CommandRobot;
 
-import edu.wpi.first.wpilibj.TimedRobot;
-
-public class Robot extends TimedRobot {
+public class Robot extends CommandRobot {
 
     public static final RobotContainer kRobotContainer = new RobotContainer();
 
     @Override
     public void robotInit() {
-	TigerLib.init();
-	this.addPeriodic(kRobotContainer::periodic, kDefaultPeriod);
-	this.addPeriodic(TigerLib::periodic, kDefaultPeriod);
-	if (Robot.isSimulation())
-	    this.addPeriodic(kRobotContainer::simulationPeriodic, kDefaultPeriod);
+        if (Robot.isSimulation())
+            this.addPeriodic(kRobotContainer::simulationPeriodic, kDefaultPeriod);
     }
-
-    @Override
-    public void robotPeriodic() {}
-
-    @Override
-    public void autonomousInit() {}
-
-    @Override
-    public void autonomousPeriodic() {}
-
-    @Override
-    public void teleopInit() {}
-
-    @Override
-    public void teleopPeriodic() {}
-
-    @Override
-    public void disabledInit() {}
-
-    @Override
-    public void disabledPeriodic() {}
-
-    @Override
-    public void testInit() {}
-
-    @Override
-    public void testPeriodic() {}
 }

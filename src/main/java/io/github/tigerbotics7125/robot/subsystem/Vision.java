@@ -1,77 +1,122 @@
-/*
- * Copyright (c) 2022 Tigerbotics and it's members. All rights reserved.
- * This work is licensed under the terms of the GNU GPLv3 license
- * found in the root directory of this project.
- */
 package io.github.tigerbotics7125.robot.subsystem;
 
+import static io.github.tigerbotics7125.robot.Constants.NetworkTables.kTargetLockHeadingTopic;
 import static io.github.tigerbotics7125.robot.Constants.Vision.*;
 
-import io.github.tigerbotics7125.robot.AprilTagLayout;
-import io.github.tigerbotics7125.robot.AprilTagLayout.AprilTag;
-import io.github.tigerbotics7125.robot.Robot;
+import java.util.ArrayList;
+import java.util.List;
+
+import org.photonvision.PhotonTargetSortMode;
+import org.photonvision.SimVisionSystem;
+import org.photonvision.targeting.PhotonTrackedTarget;
 
 import edu.wpi.first.math.geometry.Pose2d;
 import edu.wpi.first.math.geometry.Pose3d;
-import edu.wpi.first.math.geometry.Transform3d;
-import edu.wpi.first.math.util.Units;
-import edu.wpi.first.wpilibj2.command.SubsystemBase;
+import edu.wpi.first.math.geometry.Rotation2d;
+import edu.wpi.first.math.geometry.Transform2d;
+import edu.wpi.first.networktables.StringPublisher;
+import edu.wpi.first.wpilibj2.command.Subsystem;
+import io.github.tigerbotics7125.tigerlib.vision.SnakeEyes;
 
-import org.photonvision.PhotonCamera;
-import org.photonvision.SimVisionSystem;
-import org.photonvision.SimVisionTarget;
-import org.photonvision.targeting.PhotonPipelineResult;
-import org.photonvision.targeting.PhotonTrackedTarget;
+public class Vision extends SnakeEyes implements Subsystem {
 
-public class Vision extends SubsystemBase {
+    private final SimVisionSystem mSimVision = new SimVisionSystem(kCameraName, kCamDiagFOVDegrees,
+            kCamToRobot, kMaxLEDRangeMeters, kCamResWidth,
+            kCamResHeight, kMinTargetArea);
 
-    PhotonCamera mCam = new PhotonCamera(kCameraName);
-    AprilTagLayout mTagLayout = new AprilTagLayout(kTagLayout);
-
-    SimVisionSystem mSimVision;
+    private final StringPublisher mTargetLockPub = kTargetLockHeadingTopic.publish();
 
     public Vision() {
-	// use camera for vision tracking, not for driver vision.
-	mCam.setDriverMode(false);
-
-	if (Robot.isSimulation()) {
-	    // Create a sim camera system.
-	    mSimVision = new SimVisionSystem(kCameraName, kCamDiagFOVDegrees, kCamToRobot, kMaxLEDRangeMeters,
-		    kCamResWidth, kCamResHeight, kMinTargetArea);
-	    // Add targets to simulation.
-	    for (AprilTag tag : mTagLayout.getTags()) {
-		mSimVision.addSimVisionTarget(new SimVisionTarget(tag.getPose(), Units.inchesToMeters(6),
-			Units.inchesToMeters(6), tag.getID()));
-	    }
-	}
+        super(kCameraName, kCamToRobot.inverse());
     }
 
-    /** @return The {@link AprilTagLayout} used by the robot. */
-    public AprilTagLayout getTagLayout() {
-	return mTagLayout;
-    }
-
-    /** @return The latest result from the vision system. */
-    public PhotonPipelineResult getLatestResult() {
-	return mCam.getLatestResult();
-    }
-
-    /** SIM ONLY call to update the sim vision system. */
-    public void feedRobotPose(Pose2d robotPose) {
-	if (Robot.isReal())
-	    return;
-	mSimVision.processFrame(robotPose);
+    public void updateCameraPose(Pose2d robotPose) {
+        mSimVision.processFrame(robotPose);
     }
 
     /**
-     * @param target The target to use to calculate the robot's position.
-     * @return The robots pose as known by the vision system.
+     * TODO: Add to Tigerlib.
+     *
+     * @param targetToFace
+     * @param robotPose
+     * @return The heading the robot should be at if it were to face the target
+     *         head-on.
      */
-    public Pose3d getRobotPoseFromTarget(PhotonTrackedTarget target) {
-	Transform3d targetToCam = target.getBestCameraToTarget().inverse();
+    public Rotation2d getFaceTargetAngle(PhotonTrackedTarget targetToFace, Pose2d robotPose) {
+        // get tags pose
+        Pose2d tagPose = getTagPose(targetToFace.getFiducialId()).toPose2d();
 
-	Pose3d robotPose = mTagLayout.getTagPose(target.getFiducialId()).transformBy(targetToCam)
-		.transformBy(kCamToRobot);
-	return robotPose;
+        // get the triangle from robot to tag
+        Transform2d robotToTag = new Transform2d(robotPose, tagPose);
+
+        // determine the reference angle
+        double angleToRotate = Math.atan2(robotToTag.getY(), robotToTag.getX());
+
+        // the heading which will make the robot face the tag is its current rotation
+        // rotated by the reference.
+        return robotPose.getRotation().rotateBy(new Rotation2d(angleToRotate));
     }
+
+    /**
+     * TODO: Add to Tigerlib.
+     *
+     * @param sortMode
+     * @param ambiguityThreshold
+     * @return The best tag
+     */
+    public PhotonTrackedTarget getBestTag(PhotonTargetSortMode sortMode, double ambiguityThreshold) {
+        List<PhotonTrackedTarget> targets = getTargets();
+
+        // remove tags which are too ambiguous
+        targets = removeAmbiguousTags(targets, ambiguityThreshold);
+
+        // sort targets in our predefined manner.
+        targets.sort(kSortingMode.getComparator());
+
+        // after sorting, the best target is first in the list.
+        return targets.get(0);
+    }
+
+    /**
+     * TODO: Add to Tigerlib.
+     *
+     * @return If any targets are seen.
+     */
+    public boolean hasTargets() {
+        return !getTargets().isEmpty();
+    }
+
+    public List<PhotonTrackedTarget> removeAmbiguousTags(List<PhotonTrackedTarget> tags, double ambiguityThreshold) {
+        List<PhotonTrackedTarget> ambiguousTags = new ArrayList<>();
+        tags.forEach((t) -> {
+            if (t.getPoseAmbiguity() > ambiguityThreshold)
+                ambiguousTags.add(t);
+        });
+        ambiguousTags.forEach(tags::remove);
+        return tags;
+    }
+
+    /**
+     * TODO: Add to Tigerlib.
+     *
+     * @return A list of estimated robot poses.
+     */
+    public List<Pose3d> getRobotPoseEstimates() {
+        List<PhotonTrackedTarget> targets = getTargets();
+        targets = removeAmbiguousTags(targets, kAmbiguityThreshold);
+
+        List<Pose3d> robotPoses = new ArrayList<>();
+        targets.forEach((target) -> {
+            robotPoses.add(this.getRobotPose(target));
+        });
+
+        return robotPoses;
+    }
+
+    @Override
+    public void periodic() {
+        // cache latest result
+        this.getLatestResult();
+    }
+
 }

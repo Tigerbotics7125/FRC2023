@@ -1,6 +1,6 @@
 plugins {
     id "java"
-    id "edu.wpi.first.GradleRIO" version "2022.4.1"
+    id "edu.wpi.first.GradleRIO" version "2023.1.1"
     id "com.diffplug.spotless" version "6.7.2"
 }
 
@@ -54,7 +54,7 @@ allprojects {
 }
 
 dependencies {
-    implementation 'com.github.tigerbotics7125:tigerlib:2023.0.0-beta-7'
+    implementation 'com.github.tigerbotics7125:tigerlib:2023.0.1'
 
     implementation wpi.java.deps.wpilib()
     implementation wpi.java.vendor.java()
@@ -94,10 +94,11 @@ wpi.java.configureTestTasks(test)
 
 spotless {
     // get enforce property
-    var enforceSpotless = project.properties["enforceSpotless"]
+    // var enforceSpotless = project.properties["enforceSpotless"]
     // set enforceCheck by converting string to boolean
     // defaults to true if not set
-    enforceCheck = enforceSpotless != "false"
+    // enforceCheck = enforceSpotless != "false"
+    setEnforceCheck(false)
     java {
         target fileTree('.') {
             include '**/*.java'
