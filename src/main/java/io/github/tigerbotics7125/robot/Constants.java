@@ -75,23 +75,21 @@ public class Constants {
 		public static final int kPigeonID = 1;
 
 		// Characteristics
-		public static final double kMaxTranslationVelocity = Units.feetToMeters(13); // meters
-		// /
-		// second
-		public static final double kMaxThetaVelocity = 4 * Math.PI; // radians /
-		// seconds
+		// meters / second
+		public static final double kMaxTranslationVelocity = Units.feetToMeters(13);
+		// radians / second
+		public static final double kMaxThetaVelocity = 4 * Math.PI;
 		// reach max velocity in seconds. (a = v2-v1/t)
-		public static final double kMaxThetaAcceleration = kMaxThetaVelocity / .25; // radians
-		// /
-		// seconds^2
+		// radians / seconds^2
+		public static final double kMaxThetaAcceleration = kMaxThetaVelocity / .25;
 
 		// PID
-		public static final double kThetaPGain = 4; // proportional; effort =
-		// error * p
-		public static final double kThetaIGain = 0; // integral; effort = error
-		// area * i
-		public static final double kThetaDGain = .01; // derivative; effort =
-		// de/dt * d
+		// proportional; effort = error * p
+		public static final double kThetaPGain = 4;
+		// integral; effort = error area * i
+		public static final double kThetaIGain = 0;
+		// derivative; effort = de/dt * d
+		public static final double kThetaDGain = .01;
 		public static final ProfiledPIDController kThetaPIDController = new ProfiledPIDController(kThetaPGain,
 				kThetaIGain, kThetaDGain, new TrapezoidProfile.Constraints(kMaxThetaVelocity, kMaxThetaAcceleration));
 		public static final double kWheelPGain = 1;
@@ -105,7 +103,7 @@ public class Constants {
 		public static final MotorType kMotorType = MotorType.kBrushless;
 		public static final int kStallCurrentLimit = 44; // Amps
 		public static final int kFreeSpeedCurrentLimit = 2; // Amps
-		public static final double kGearRatio = 8.45; // micro toughbox ratio
+		public static final double kGearRatio = 10.71; // micro toughbox ratio
 		/**
 		 * Motor rotations to wheel meters.
 		 * @formatter:off
@@ -114,14 +112,18 @@ public class Constants {
 		 *       1           gearbox input          1 revolution
 		 * @formatter:on
 		 */
-		public static final double kPositionConversionFactor = 1.0 / kGearRatio * (2 * Math.PI * kWheelRadiusMeters);
+		public static final double kPositionConversionFactor = 1 * (1.0 / kGearRatio)
+				* (2 * Math.PI * kWheelRadiusMeters);
 		/**
-		 * Input RPM to output RPM
+		 * Input RPM to output meters per second
 		 * @formatter:off
-		 *
+		 *  1 revolution     gearbox output     2 * pi * wheel radius      1 minute
+		 * -------------- * ---------------- * ----------------------- * ------------
+		 *   1 minute        gearbox input          1 revolution          60 seconds
 		 * @formatter:on
 		 */
-		public static final double kVelocityConversionFactor = 1.0 / kGearRatio;
+		public static final double kVelocityConversionFactor = (1.0 / kGearRatio) * (2 * Math.PI * kWheelRadiusMeters)
+				* (1.0 / 60.0);
 
 		// Kinematic Values
 		public static final Translation2d kFLOffset = new Translation2d(Units.inchesToMeters(10.18),
