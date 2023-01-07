@@ -13,7 +13,7 @@ public class Robot extends CommandRobot {
 
     @Override
     public void robotInit() {
-        if (Robot.isSimulation())
-            this.addPeriodic(kRobotContainer::simulationPeriodic, kDefaultPeriod);
+	if (Robot.isSimulation())
+	    this.addPeriodic(kRobotContainer::simulationPeriodic, kDefaultPeriod);
     }
 }
