@@ -9,11 +9,19 @@ import io.github.tigerbotics7125.tigerlib.CommandRobot;
 
 public class Robot extends CommandRobot {
 
-    public static final RobotContainer kRobotContainer = new RobotContainer();
+    public static final RobotContainer mRobotContainer = new RobotContainer();
+
+    // this value should be true out on the field, where we are using replay.
+    // but false when using the sim for normal uses lol.
+    private final boolean useReplay = false;
 
     @Override
     public void robotInit() {
-	if (Robot.isSimulation())
-	    this.addPeriodic(kRobotContainer::simulationPeriodic, kDefaultPeriod);
+
+    }
+
+    @Override
+    public void simulationPeriodic() {
+        mRobotContainer.simulationPeriodic();
     }
 }
