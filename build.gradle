@@ -2,10 +2,21 @@ plugins {
     id "java"
     id "edu.wpi.first.GradleRIO" version "2023.1.1"
     id "com.diffplug.spotless" version "6.7.2"
+    id "com.peterabeles.gversion" version "1.10"
 }
 
 sourceCompatibility = JavaVersion.VERSION_17
 targetCompatibility = JavaVersion.VERSION_17
+
+project.compileJava.dependsOn(createVersionFile)
+gversion {
+    srcDir = "src/main/java"
+    classPackage = "io.github.tigerbotics7125.robot"
+    className = "BuildConstants"
+    dateFormat = "yyyy-MM-dd HH:mm:ss z"
+    timeZone = "America/Chicago"
+    indent = "  "
+}
 
 def ROBOT_MAIN_CLASS = "io.github.tigerbotics7125.robot.Main"
 
@@ -52,6 +63,7 @@ allprojects {
         mavenLocal()
     }
 }
+
 
 dependencies {
     implementation 'com.github.tigerbotics7125:tigerlib:2023.0.1'

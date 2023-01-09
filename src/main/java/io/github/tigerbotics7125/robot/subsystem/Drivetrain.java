@@ -5,8 +5,8 @@
  */
 package io.github.tigerbotics7125.robot.subsystem;
 
+import static io.github.tigerbotics7125.robot.Constants.*;
 import static io.github.tigerbotics7125.robot.Constants.Drivetrain.*;
-import static io.github.tigerbotics7125.robot.Constants.kNominalVoltage;
 
 import io.github.tigerbotics7125.robot.Robot;
 
@@ -22,17 +22,14 @@ import edu.wpi.first.math.kinematics.MecanumDriveWheelSpeeds;
 import edu.wpi.first.math.system.plant.DCMotor;
 import edu.wpi.first.math.util.Units;
 import edu.wpi.first.wpilibj.Timer;
-import edu.wpi.first.wpilibj2.command.Command;
-import edu.wpi.first.wpilibj2.command.Commands;
 import edu.wpi.first.wpilibj2.command.SubsystemBase;
 
 import com.ctre.phoenix.sensors.WPI_PigeonIMU;
-import com.revrobotics.CANSparkMax;
+import com.revrobotics.*;
 import com.revrobotics.CANSparkMax.ControlType;
 import com.revrobotics.CANSparkMax.IdleMode;
-import com.revrobotics.REVPhysicsSim;
+import java.util.ArrayList;
 import java.util.List;
-import java.util.function.DoubleSupplier;
 
 public class Drivetrain extends SubsystemBase {
 	public enum TurningMode {
@@ -59,6 +56,8 @@ public class Drivetrain extends SubsystemBase {
 	}
 
 	private final List<CANSparkMax> mMotors;
+	private final List<RelativeEncoder> mEncoders;
+	private final List<SparkMaxPIDController> mPIDControllers;
 	private final WPI_PigeonIMU mPigeon;
 
 	private final MecanumDriveKinematics mKinematics;
@@ -76,6 +75,8 @@ public class Drivetrain extends SubsystemBase {
 	public Drivetrain() {
 		mMotors = List.of(new CANSparkMax(kFLID, kMotorType), new CANSparkMax(kFRID, kMotorType),
 				new CANSparkMax(kRLID, kMotorType), new CANSparkMax(kRRID, kMotorType));
+		mEncoders = new ArrayList<>();
+		mPIDControllers = new ArrayList<>();
 		mMotors.forEach(this::initMotor);
 
 		mPigeon = new WPI_PigeonIMU(kPigeonID);
@@ -89,12 +90,14 @@ public class Drivetrain extends SubsystemBase {
 
 	/** @param motor The motor to setup. */
 	private void initMotor(CANSparkMax motor) {
+		mEncoders.add(motor.getEncoder());
+		mPIDControllers.add(motor.getPIDController());
 		motor.setSmartCurrentLimit(kStallCurrentLimit, kFreeSpeedCurrentLimit);
 		motor.enableVoltageCompensation(kNominalVoltage);
 		motor.setIdleMode(IdleMode.kCoast);
 		motor.getPIDController().setP(kWheelPGain);
-		motor.getEncoder().setPositionConversionFactor(kPositionConversionFactor);
-		motor.getEncoder().setVelocityConversionFactor(kVelocityConversionFactor);
+		// motor.getEncoder().setPositionConversionFactor(kPositionConversionFactor);
+		// motor.getEncoder().setVelocityConversionFactor(kVelocityConversionFactor);
 		if (Robot.isSimulation())
 			REVPhysicsSim.getInstance().addSparkMax(motor, DCMotor.getNEO(1));
 	}
@@ -109,8 +112,9 @@ public class Drivetrain extends SubsystemBase {
 		// Update motors.
 		REVPhysicsSim.getInstance().run();
 		// Update heading, (Not accurate, but functional).
-		var deg = Units.radiansToDegrees(mKinematics.toChassisSpeeds(getWheelSpeeds()).omegaRadiansPerSecond)
-				* Robot.kDefaultPeriod;
+		var deg = Units.radiansToDegrees(mKinematics.toChassisSpeeds(getWheelSpeeds()).omegaRadiansPerSecond) * .02; // 20ms
+		// loop
+		// time
 		mPigeon.getSimCollection().addHeading(deg);
 	}
 
@@ -125,19 +129,8 @@ public class Drivetrain extends SubsystemBase {
 	 */
 	public void addVisionMeasurement(Pose2d estimatedPose, double timestamp) {
 		mPoseEstimator.addVisionMeasurement(estimatedPose, timestamp);
-	}
 
-	/**
-	 * @param x   Input in the forwards direction. [-1, 1]
-	 * @param y   Input in the left direction. [-1, 1]
-	 * @param z_x X axis of the desired heading AND turning input. [-1, 1]
-	 * @param z_y Y axis of the desired heading. [-1, 1]
-	 * @return A command which will drive the robot based off of the suppliers
-	 *         given.
-	 */
-	public Command driveCmd(DoubleSupplier x, DoubleSupplier y, DoubleSupplier z_x, DoubleSupplier z_y) {
-		return Commands.run(() -> drive(x.getAsDouble(), y.getAsDouble(), z_x.getAsDouble(), z_y.getAsDouble()), this)
-				.repeatedly();
+		// do target tracking
 	}
 
 	/**
@@ -254,7 +247,7 @@ public class Drivetrain extends SubsystemBase {
 	 */
 	public void setPose(Pose2d pose, Rotation2d heading) {
 		mPoseEstimator.resetPosition(heading, getWheelPositions(), pose);
-		mMotors.forEach((motor) -> motor.getEncoder().setPosition(0));
+		mEncoders.forEach((encoder) -> encoder.setPosition(0));
 	}
 
 	/**
@@ -263,25 +256,32 @@ public class Drivetrain extends SubsystemBase {
 	 */
 	public void setWheelSpeeds(MecanumDriveWheelSpeeds targetSpeeds) {
 		// Ensure desired motor speeds are within acceptable values.
-		targetSpeeds.desaturate(kMaxTranslationVelocity);
+		// targetSpeeds.desaturate(kMaxTranslationVelocity);
+
+		double fl = targetSpeeds.frontLeftMetersPerSecond / kVelocityConversionFactor;
+		double fr = targetSpeeds.frontRightMetersPerSecond / kVelocityConversionFactor;
+		double rl = targetSpeeds.rearLeftMetersPerSecond / kVelocityConversionFactor;
+		double rr = targetSpeeds.rearRightMetersPerSecond / kVelocityConversionFactor;
 
 		// Convert wheel speeds to a list, because it makes applying it easier.
-		List<Double> wheelSpeeds = List.of(targetSpeeds.frontLeftMetersPerSecond,
-				targetSpeeds.frontRightMetersPerSecond, targetSpeeds.rearLeftMetersPerSecond,
-				targetSpeeds.rearRightMetersPerSecond);
+		List<Double> wheelSpeeds = List.of(fl, fr, rl, rr);
 
 		for (int i = 0; i < 4; i++) {
-			mMotors.get(i).getPIDController().setReference(wheelSpeeds.get(i), ControlType.kVelocity);
+			mPIDControllers.get(i).setReference(wheelSpeeds.get(i), ControlType.kVelocity);
 		}
 	}
 
 	public void setWheelPositions(MecanumDriveWheelPositions targetPositons) {
 
-		List<Double> wheelPositions = List.of(targetPositons.frontLeftMeters, targetPositons.frontRightMeters,
-				targetPositons.rearLeftMeters, targetPositons.rearRightMeters);
+		double fl = targetPositons.frontLeftMeters / kPositionConversionFactor;
+		double fr = targetPositons.frontRightMeters / kPositionConversionFactor;
+		double rl = targetPositons.rearLeftMeters / kPositionConversionFactor;
+		double rr = targetPositons.rearRightMeters / kPositionConversionFactor;
+
+		List<Double> wheelPositions = List.of(fl, fr, rl, rr);
 
 		for (int i = 0; i < 4; i++) {
-			mMotors.get(i).getPIDController().setReference(wheelPositions.get(i), ControlType.kPosition);
+			mPIDControllers.get(i).setReference(wheelPositions.get(i), ControlType.kPosition);
 		}
 	}
 
@@ -318,14 +318,23 @@ public class Drivetrain extends SubsystemBase {
 
 	/** @return The current wheel speeds. */
 	public MecanumDriveWheelSpeeds getWheelSpeeds() {
-		return new MecanumDriveWheelSpeeds(mMotors.get(0).getEncoder().getVelocity(),
-				mMotors.get(1).getEncoder().getVelocity(), mMotors.get(2).getEncoder().getVelocity(),
-				mMotors.get(3).getEncoder().getVelocity());
+
+		double fl = mEncoders.get(0).getVelocity() * kVelocityConversionFactor;
+		double fr = mEncoders.get(1).getVelocity() * kVelocityConversionFactor;
+		double rl = mEncoders.get(2).getVelocity() * kVelocityConversionFactor;
+		double rr = mEncoders.get(3).getVelocity() * kVelocityConversionFactor;
+
+		return new MecanumDriveWheelSpeeds(fl, fr, rl, rr);
+
 	}
 
 	public MecanumDriveWheelPositions getWheelPositions() {
-		return new MecanumDriveWheelPositions(mMotors.get(0).getEncoder().getPosition(),
-				mMotors.get(1).getEncoder().getPosition(), mMotors.get(2).getEncoder().getPosition(),
-				mMotors.get(3).getEncoder().getPosition());
+
+		double fl = mEncoders.get(0).getPosition() * kPositionConversionFactor;
+		double fr = mEncoders.get(1).getPosition() * kPositionConversionFactor;
+		double rl = mEncoders.get(2).getPosition() * kPositionConversionFactor;
+		double rr = mEncoders.get(3).getPosition() * kPositionConversionFactor;
+
+		return new MecanumDriveWheelPositions(fl, fr, rl, rr);
 	}
 }
