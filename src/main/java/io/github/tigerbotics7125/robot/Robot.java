@@ -11,17 +11,16 @@ public class Robot extends CommandRobot {
 
     public static final RobotContainer mRobotContainer = new RobotContainer();
 
-    // this value should be true out on the field, where we are using replay.
-    // but false when using the sim for normal uses lol.
-    private final boolean useReplay = false;
+    @Override
+    public void robotInit() {}
 
     @Override
-    public void robotInit() {
-
+    public void robotPeriodic() {
+        mRobotContainer.periodic();
     }
 
     @Override
     public void simulationPeriodic() {
-	mRobotContainer.simulationPeriodic();
+        mRobotContainer.simulationPeriodic();
     }
 }
