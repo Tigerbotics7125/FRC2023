@@ -79,7 +79,7 @@ public class RobotContainer {
     private void initTriggers() {
         new Trigger(RobotController::getUserButton)
                 .trigger(() -> mDrivetrain.setPose(new Pose2d(), new Rotation2d()));
-        new Trigger(RobotState::isDisabled).trigger(mDrivetrain::setCoastMode);
+        new Trigger(RobotState::isDisabled).trigger(Commands.run(mDrivetrain::setCoastMode).ignoringDisable(true));
         new Trigger(RobotState::isEnabled).trigger(mDrivetrain::setBrakeMode);
 
         new Trigger(mVision::hasTargets)
@@ -158,7 +158,5 @@ public class RobotContainer {
                                                     .getFiducialId())
                                     .toPose2d());
         }
-
-        // put data to dashboard.
     }
 }
