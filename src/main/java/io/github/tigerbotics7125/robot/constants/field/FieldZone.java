@@ -53,10 +53,8 @@ public enum FieldZone {
 
     public Translation2d getTranslation() {
         Translation2d pose = mPoseMeters;
+        if (!(DriverStation.getAlliance() == Alliance.Red)) return pose;
         // Flip for red alliance.
-        if (!(DriverStation.getAlliance() == Alliance.Red)) {
-            return pose;
-        }
 
         if (this == DOUBLE_SUBSTATION_LEFT) {
             pose = DOUBLE_SUBSTATION_RIGHT.mPoseMeters;
@@ -70,6 +68,7 @@ public enum FieldZone {
             pose = LEFT_GRID.mPoseMeters;
         }
 
+        pose = new Translation2d(FieldConstants.fieldLength - pose.getX(), pose.getY());
         return pose;
     }
 
