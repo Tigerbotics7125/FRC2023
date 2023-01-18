@@ -32,7 +32,6 @@ import edu.wpi.first.math.kinematics.ChassisSpeeds;
 import edu.wpi.first.math.kinematics.MecanumDriveKinematics;
 import edu.wpi.first.math.kinematics.MecanumDriveWheelPositions;
 import edu.wpi.first.math.kinematics.MecanumDriveWheelSpeeds;
-import edu.wpi.first.math.system.plant.DCMotor;
 import edu.wpi.first.math.util.Units;
 import edu.wpi.first.wpilibj.Timer;
 import edu.wpi.first.wpilibj2.command.Command;
@@ -103,15 +102,25 @@ public class Drivetrain extends SubsystemBase {
 
     /** @param motor The motor to setup. */
     private void initMotor(CANSparkMax motor) {
-        mEncoders.add(motor.getEncoder());
-        mPIDControllers.add(motor.getPIDController());
+        motor.restoreFactoryDefaults();
+
+        motor.setIdleMode(IdleMode.kCoast);
         motor.setSmartCurrentLimit(kStallCurrentLimit, kFreeSpeedCurrentLimit);
         motor.enableVoltageCompensation(kNominalVoltage);
-        motor.setIdleMode(IdleMode.kCoast);
-        motor.getPIDController().setP(kWheelPGain);
-        // motor.getEncoder().setPositionConversionFactor(kPositionConversionFactor);
-        // motor.getEncoder().setVelocityConversionFactor(kVelocityConversionFactor);
-        if (Robot.isSimulation()) REVPhysicsSim.getInstance().addSparkMax(motor, DCMotor.getNEO(1));
+
+        mEncoders.add(motor.getEncoder());
+
+        SparkMaxPIDController pid = motor.getPIDController();
+        mPIDControllers.add(pid);
+        pid.setP(kWheelPGain);
+        pid.setI(kWheelIGain);
+        pid.setD(kWheelDGain);
+        pid.setOutputRange(-1, 1); // duty cycle
+
+        motor.burnFlash();
+
+        if (Robot.isSimulation())
+            REVPhysicsSim.getInstance().addSparkMax(motor, kStallTorque, kFreeSpeed);
     }
 
     @Override
@@ -144,8 +153,6 @@ public class Drivetrain extends SubsystemBase {
      */
     public void addVisionMeasurement(Pose2d estimatedPose, double timestamp) {
         mPoseEstimator.addVisionMeasurement(estimatedPose, timestamp);
-
-        // do target tracking
     }
 
     /**
@@ -290,12 +297,20 @@ public class Drivetrain extends SubsystemBase {
     /** @param targetSpeeds The wheel speeds to have the robot attempt to achieve. */
     public void setWheelSpeeds(MecanumDriveWheelSpeeds targetSpeeds) {
         // Ensure desired motor speeds are within acceptable values.
-        // targetSpeeds.desaturate(kMaxTranslationVelocity);
+        targetSpeeds.desaturate(kMaxLinearVelocity);
 
-        double fl = targetSpeeds.frontLeftMetersPerSecond / kVelocityConversionFactor;
-        double fr = targetSpeeds.frontRightMetersPerSecond / kVelocityConversionFactor;
-        double rl = targetSpeeds.rearLeftMetersPerSecond / kVelocityConversionFactor;
-        double rr = targetSpeeds.rearRightMetersPerSecond / kVelocityConversionFactor;
+        double fl =
+                kMotorRPMToWheelMPS.fromOutput(
+                        targetSpeeds.frontLeftMetersPerSecond); // / kVelocityConversionFactor;
+        double fr =
+                kMotorRPMToWheelMPS.fromOutput(
+                        targetSpeeds.frontRightMetersPerSecond); // / kVelocityConversionFactor;
+        double rl =
+                kMotorRPMToWheelMPS.fromOutput(
+                        targetSpeeds.rearLeftMetersPerSecond); // / kVelocityConversionFactor;
+        double rr =
+                kMotorRPMToWheelMPS.fromOutput(
+                        targetSpeeds.rearRightMetersPerSecond); // / kVelocityConversionFactor;
 
         // Convert wheel speeds to a list, because it makes applying it easier.
         List<Double> wheelSpeeds = List.of(fl, fr, rl, rr);
@@ -307,10 +322,18 @@ public class Drivetrain extends SubsystemBase {
 
     public void setWheelPositions(MecanumDriveWheelPositions targetPositons) {
 
-        double fl = targetPositons.frontLeftMeters / kPositionConversionFactor;
-        double fr = targetPositons.frontRightMeters / kPositionConversionFactor;
-        double rl = targetPositons.rearLeftMeters / kPositionConversionFactor;
-        double rr = targetPositons.rearRightMeters / kPositionConversionFactor;
+        double fl =
+                kMotorsRotationsToWheelMeters.fromOutput(
+                        targetPositons.frontLeftMeters); // / kPositionConversionFactor;
+        double fr =
+                kMotorsRotationsToWheelMeters.fromOutput(
+                        targetPositons.frontRightMeters); // / kPositionConversionFactor;
+        double rl =
+                kMotorsRotationsToWheelMeters.fromOutput(
+                        targetPositons.rearLeftMeters); // / kPositionConversionFactor;
+        double rr =
+                kMotorsRotationsToWheelMeters.fromOutput(
+                        targetPositons.rearRightMeters); // / kPositionConversionFactor;
 
         List<Double> wheelPositions = List.of(fl, fr, rl, rr);
 
@@ -355,20 +378,36 @@ public class Drivetrain extends SubsystemBase {
     /** @return The current wheel speeds. */
     public MecanumDriveWheelSpeeds getWheelSpeeds() {
 
-        double fl = mEncoders.get(0).getVelocity() * kVelocityConversionFactor;
-        double fr = mEncoders.get(1).getVelocity() * kVelocityConversionFactor;
-        double rl = mEncoders.get(2).getVelocity() * kVelocityConversionFactor;
-        double rr = mEncoders.get(3).getVelocity() * kVelocityConversionFactor;
+        double fl =
+                kMotorRPMToWheelMPS.fromInput(
+                        mEncoders.get(0).getVelocity()); // * kVelocityConversionFactor;
+        double fr =
+                kMotorRPMToWheelMPS.fromInput(
+                        mEncoders.get(1).getVelocity()); // * kVelocityConversionFactor;
+        double rl =
+                kMotorRPMToWheelMPS.fromInput(
+                        mEncoders.get(2).getVelocity()); // * kVelocityConversionFactor;
+        double rr =
+                kMotorRPMToWheelMPS.fromInput(
+                        mEncoders.get(3).getVelocity()); // * kVelocityConversionFactor;
 
         return new MecanumDriveWheelSpeeds(fl, fr, rl, rr);
     }
 
     public MecanumDriveWheelPositions getWheelPositions() {
 
-        double fl = mEncoders.get(0).getPosition() * kPositionConversionFactor;
-        double fr = mEncoders.get(1).getPosition() * kPositionConversionFactor;
-        double rl = mEncoders.get(2).getPosition() * kPositionConversionFactor;
-        double rr = mEncoders.get(3).getPosition() * kPositionConversionFactor;
+        double fl =
+                kMotorsRotationsToWheelMeters.fromInput(
+                        mEncoders.get(0).getPosition()); // * kPositionConversionFactor;
+        double fr =
+                kMotorsRotationsToWheelMeters.fromInput(
+                        mEncoders.get(1).getPosition()); // * kPositionConversionFactor;
+        double rl =
+                kMotorsRotationsToWheelMeters.fromInput(
+                        mEncoders.get(2).getPosition()); // * kPositionConversionFactor;
+        double rr =
+                kMotorsRotationsToWheelMeters.fromInput(
+                        mEncoders.get(3).getPosition()); // * kPositionConversionFactor;
 
         return new MecanumDriveWheelPositions(fl, fr, rl, rr);
     }
