@@ -8,11 +8,6 @@ package io.github.tigerbotics7125.robot;
 import static io.github.tigerbotics7125.robot.constants.OIConstants.*;
 import static io.github.tigerbotics7125.robot.constants.VisionConstants.*;
 
-import java.util.ArrayList;
-import java.util.List;
-
-import org.photonvision.targeting.PhotonTrackedTarget;
-
 import edu.wpi.first.math.geometry.Pose2d;
 import edu.wpi.first.math.geometry.Pose3d;
 import edu.wpi.first.wpilibj.RobotController;
@@ -25,6 +20,9 @@ import io.github.tigerbotics7125.robot.subsystem.Vision;
 import io.github.tigerbotics7125.tigerlib.input.controller.XboxController;
 import io.github.tigerbotics7125.tigerlib.input.trigger.Trigger;
 import io.github.tigerbotics7125.tigerlib.input.trigger.Trigger.ActivationCondition;
+import java.util.ArrayList;
+import java.util.List;
+import org.photonvision.targeting.PhotonTrackedTarget;
 
 public class RobotContainer {
 
@@ -76,47 +74,53 @@ public class RobotContainer {
     /** Initialize non-OI Triggers. */
     private void initTriggers() {
 
-            mDrivetrain.setDefaultCommand(
-                Commands.run(() -> mDrivetrain.drive(mDriver.leftY().get(), mDriver.leftX().get(), mDriver.rightX().get(), mDriver.rightY().get()), mDrivetrain)
-        );
+        mDrivetrain.setDefaultCommand(
+                Commands.run(
+                        () ->
+                                mDrivetrain.drive(
+                                        mDriver.leftY().get(),
+                                        mDriver.leftX().get(),
+                                        mDriver.rightX().get(),
+                                        mDriver.rightY().get()),
+                        mDrivetrain));
 
-            /*
+        /*
 
-            new Trigger(RobotController::getUserButton)
-            .trigger(() -> mDrivetrain.setPose(new Pose2d(), new Rotation2d()));
-            new Trigger(RobotState::isDisabled)
-            .trigger(Commands.run(mDrivetrain::setCoastMode).ignoringDisable(true));
-            new Trigger(RobotState::isEnabled).trigger(mDrivetrain::setBrakeMode);
+        new Trigger(RobotController::getUserButton)
+        .trigger(() -> mDrivetrain.setPose(new Pose2d(), new Rotation2d()));
+        new Trigger(RobotState::isDisabled)
+        .trigger(Commands.run(mDrivetrain::setCoastMode).ignoringDisable(true));
+        new Trigger(RobotState::isEnabled).trigger(mDrivetrain::setBrakeMode);
 
-            new Trigger(mVision::hasTargets)
-            .trigger(
-                    () -> {
-                            double timestamp = mVision.getTimestamp();
-                            mVision.getRobotPoseEstimates(kAmbiguityThreshold)
-                            .forEach(
-                                    (pose) -> {
-                                            mDrivetrain.addVisionMeasurement(
-                                                    pose.toPose2d(), timestamp);
-                                                });
-                                        });
-                                        */
+        new Trigger(mVision::hasTargets)
+        .trigger(
+                () -> {
+                        double timestamp = mVision.getTimestamp();
+                        mVision.getRobotPoseEstimates(kAmbiguityThreshold)
+                        .forEach(
+                                (pose) -> {
+                                        mDrivetrain.addVisionMeasurement(
+                                                pose.toPose2d(), timestamp);
+                                            });
+                                    });
+                                    */
     }
 
     /** Set Subsystem's default commands. */
     private void initDefaultCommands() {
-            /*
+        /*
 
-            mDrivetrain.setDefaultCommand(
-                    Commands.run(
-                            () ->
-                            mDrivetrain.drive(
-                                    mDriver.leftY().get(),
-                                    mDriver.leftX().get(),
-                                    mDriver.rightX().get(),
-                                    mDriver.rightY().get()),
-                                    mDrivetrain));
-                                    */
-                                }
+        mDrivetrain.setDefaultCommand(
+                Commands.run(
+                        () ->
+                        mDrivetrain.drive(
+                                mDriver.leftY().get(),
+                                mDriver.leftX().get(),
+                                mDriver.rightX().get(),
+                                mDriver.rightY().get()),
+                                mDrivetrain));
+                                */
+    }
 
     /** Periodic call, always runs. */
     public void periodic() {
@@ -127,7 +131,8 @@ public class RobotContainer {
 
         List<Pose2d> trajPoses = new ArrayList<>();
         // DS always on trajectory
-        // mAutoPilot.getTrajectory().getStates().forEach((state) -> trajPoses.add(state.poseMeters));
+        // mAutoPilot.getTrajectory().getStates().forEach((state) ->
+        // trajPoses.add(state.poseMeters));
         mField.getObject("AutoPilot_GenPath").setPoses(trajPoses);
         // Active path.
         trajPoses.clear();
@@ -146,7 +151,7 @@ public class RobotContainer {
         SmartDashboard.putBoolean(
                 "WithinCommunity", FieldArea.COMMUNITY.contains(mDrivetrain.getPose()));
         */
-        }
+    }
 
     /** Periodic call, only runs during simulation. */
     public void simulationPeriodic() {

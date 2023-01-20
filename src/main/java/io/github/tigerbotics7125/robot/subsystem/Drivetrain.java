@@ -13,9 +13,6 @@ import static io.github.tigerbotics7125.robot.constants.DrivetrainConstants.Moto
 import static io.github.tigerbotics7125.robot.constants.DrivetrainConstants.Odometry.*;
 import static io.github.tigerbotics7125.robot.constants.RobotConstants.kNominalVoltage;
 
-import java.util.ArrayList;
-import java.util.List;
-
 import com.ctre.phoenix.motorcontrol.can.WPI_TalonSRX;
 import com.ctre.phoenix.sensors.WPI_PigeonIMU;
 import com.pathplanner.lib.PathPlannerTrajectory;
@@ -26,7 +23,6 @@ import com.revrobotics.CANSparkMax.IdleMode;
 import com.revrobotics.REVPhysicsSim;
 import com.revrobotics.RelativeEncoder;
 import com.revrobotics.SparkMaxPIDController;
-
 import edu.wpi.first.math.controller.PIDController;
 import edu.wpi.first.math.controller.ProfiledPIDController;
 import edu.wpi.first.math.estimator.MecanumDrivePoseEstimator;
@@ -46,6 +42,8 @@ import edu.wpi.first.wpilibj2.command.SequentialCommandGroup;
 import edu.wpi.first.wpilibj2.command.SubsystemBase;
 import io.github.tigerbotics7125.robot.Robot;
 import io.github.tigerbotics7125.robot.constants.DrivetrainConstants;
+import java.util.ArrayList;
+import java.util.List;
 
 public class Drivetrain extends SubsystemBase {
     public enum TurningMode {
@@ -123,8 +121,7 @@ public class Drivetrain extends SubsystemBase {
         pid.setOutputRange(-1, 1); // duty cycle
 
         // invert right side
-        if (motor.getDeviceId() % 2 == 0)
-            motor.setInverted(true);
+        if (motor.getDeviceId() % 2 == 0) motor.setInverted(true);
         else motor.setInverted(false);
 
         motor.burnFlash();
@@ -135,7 +132,6 @@ public class Drivetrain extends SubsystemBase {
         SmartDashboard.putNumber("ThetaP", kThetaPIDController.getP());
         SmartDashboard.putNumber("ThetaI", kThetaPIDController.getI());
         SmartDashboard.putNumber("ThetaD", kThetaPIDController.getD());
-
     }
 
     @Override
@@ -146,13 +142,9 @@ public class Drivetrain extends SubsystemBase {
         double i = SmartDashboard.getNumber("ThetaI", 0.0);
         double d = SmartDashboard.getNumber("ThetaD", 0.0);
 
-        if (p != kThetaPIDController.getP())
-            kThetaPIDController.setP(p);
-        if (i != kThetaPIDController.getI())
-            kThetaPIDController.setP(i);
-        if (d != kThetaPIDController.getD())
-            kThetaPIDController.setP(d);
-
+        if (p != kThetaPIDController.getP()) kThetaPIDController.setP(p);
+        if (i != kThetaPIDController.getI()) kThetaPIDController.setP(i);
+        if (d != kThetaPIDController.getD()) kThetaPIDController.setP(d);
     }
 
     @Override
@@ -224,18 +216,17 @@ public class Drivetrain extends SubsystemBase {
 
         // Rotate inputs for field oriented driving.
         Translation2d input = new Translation2d(x * kMaxLinearVelocity, y * kMaxLinearVelocity);
-        if (mFieldOriented)
-            input = input.rotateBy(getHeading().unaryMinus());
+        if (mFieldOriented) input = input.rotateBy(getHeading().unaryMinus());
 
         SmartDashboard.putNumber("desiredHeading", mDesiredHeading.getDegrees());
         SmartDashboard.putNumber("currentHeading", getHeading().getDegrees());
-
 
         // Convert chassis speeds to individual wheel speeds.
         double xSpeed = input.getX();
         double ySpeed = input.getY();
         double zSpeed =
-                mThetaPID.calculate(getHeading().getRadians(), mDesiredHeading.getRadians());// * DrivetrainConstants.Characteristics.kMaxRotationalVelocity;
+                mThetaPID.calculate(getHeading().getRadians(), mDesiredHeading.getRadians()); // *
+        // DrivetrainConstants.Characteristics.kMaxRotationalVelocity;
         ChassisSpeeds desiredChassisSpeeds = new ChassisSpeeds(xSpeed, ySpeed, zSpeed);
         System.out.println(desiredChassisSpeeds);
         setChassisSpeeds(desiredChassisSpeeds);
@@ -343,10 +334,8 @@ public class Drivetrain extends SubsystemBase {
 
         for (int i = 0; i < 4; i++) {
             double duty = wheelSpeeds.get(i);
-            if (duty > 1.0)
-                duty = 1.0;
-            else if (duty < -1.0)
-                duty = -1.0;
+            if (duty > 1.0) duty = 1.0;
+            else if (duty < -1.0) duty = -1.0;
             mMotors.get(i).set(duty);
         }
     }
@@ -367,7 +356,6 @@ public class Drivetrain extends SubsystemBase {
                         targetPositons.rearRightMeters); // / kPositionConversionFactor;
 
         List<Double> wheelPositions = List.of(fl, fr, rl, rr);
-
 
         for (int i = 0; i < 4; i++) {
             mPIDControllers.get(i).setReference(wheelPositions.get(i), ControlType.kPosition);
@@ -412,7 +400,6 @@ public class Drivetrain extends SubsystemBase {
 
     /** @return The current wheel speeds. */
     public MecanumDriveWheelSpeeds getWheelSpeeds() {
-
 
         double fl =
                 kMotorRPMToWheelMPS.fromInput(
