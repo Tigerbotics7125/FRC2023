@@ -16,7 +16,6 @@ import edu.wpi.first.math.numbers.N3;
 import edu.wpi.first.math.trajectory.TrapezoidProfile;
 import edu.wpi.first.math.util.Units;
 import io.github.tigerbotics7125.robot.subsystem.Drivetrain.TurningMode;
-import io.github.tigerbotics7125.tigerlib.math.Conversion;
 
 public final class DrivetrainConstants {
 
@@ -78,8 +77,9 @@ public final class DrivetrainConstants {
         public static final MotorType kMotorType = MotorType.kBrushless;
         public static final int kStallCurrentLimit = 44; // Amps
         public static final int kFreeSpeedCurrentLimit = 2; // Amps
-        public static final double kPositionConversionFactor = (1.0 / Characteristics.kGearRatio)
-                * (2.0 * Math.PI * Characteristics.kWheelRadiusMeters);
+        public static final double kPositionConversionFactor =
+                (1.0 / Characteristics.kGearRatio)
+                        * (2.0 * Math.PI * Characteristics.kWheelRadiusMeters);
         public static final double kVelocityConversionFactor = kPositionConversionFactor / 60.0;
     }
 

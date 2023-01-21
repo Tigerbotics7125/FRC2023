@@ -5,7 +5,6 @@
  */
 package io.github.tigerbotics7125.robot;
 
-import io.github.tigerbotics7125.robot.constants.DrivetrainConstants;
 import io.github.tigerbotics7125.tigerlib.CommandRobot;
 
 public class Robot extends CommandRobot {
@@ -13,8 +12,7 @@ public class Robot extends CommandRobot {
     public static final RobotContainer mRobotContainer = new RobotContainer();
 
     @Override
-    public void robotInit() {
-    }
+    public void robotInit() {}
 
     @Override
     public void robotPeriodic() {

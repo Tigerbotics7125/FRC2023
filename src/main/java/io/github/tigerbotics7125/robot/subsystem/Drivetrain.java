@@ -126,8 +126,7 @@ public class Drivetrain extends SubsystemBase {
         // invert right side
         if (motor.getDeviceId() % 2 == 0) {
             motor.setInverted(true);
-        }
-        else {
+        } else {
             motor.setInverted(false);
         }
 
@@ -324,10 +323,11 @@ public class Drivetrain extends SubsystemBase {
             mPIDControllers.get(i).setReference(wheelSpeeds.get(i), ControlType.kVelocity);
             System.out.println();
             System.out.println("targetSpeed: " + wheelSpeeds.get(i));
-            System.out.println("kylers number: " + ((mEncoders.get(i).getVelocity() * 0.5) - wheelSpeeds.get(i)) * DrivetrainConstants.Characteristics.kWheelPGain);
+            System.out.println(
+                    "kylers number: "
+                            + ((mEncoders.get(i).getVelocity() * 0.5) - wheelSpeeds.get(i))
+                                    * DrivetrainConstants.Characteristics.kWheelPGain);
         }
-
-
 
         /*
 
