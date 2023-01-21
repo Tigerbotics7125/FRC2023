@@ -14,9 +14,6 @@ public class Robot extends CommandRobot {
 
     @Override
     public void robotInit() {
-        System.out.println(DrivetrainConstants.MotorValues.kMotorRPMToWheelMPS.fromInput(1.0));
-        System.out.println(DrivetrainConstants.MotorValues.kMotorRPMToWheelMPS.fromOutput(1.0));
-        // throw new RuntimeException();
     }
 
     @Override

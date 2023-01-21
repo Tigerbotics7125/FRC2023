@@ -38,7 +38,7 @@ public final class DrivetrainConstants {
 
     public static final class Characteristics {
         public static final double kWheelRadiusMeters = Units.inchesToMeters(6.0) / 2.0;
-        public static final double kGearRatio = 1.0 / 10.71; // input
+        public static final double kGearRatio = 10.71; // input
         // get from AM website
         public static final float kStallTorque = 55.697001316f; // NM
         public static final float kFreeSpeed = 529.97f; // RPM
@@ -64,7 +64,7 @@ public final class DrivetrainConstants {
         // radians within goal to stop theta pid.
         private static final double kThetaPIDCutoff = Units.degreesToRadians(1);
 
-        public static final double kWheelPGain = 6e-5;
+        public static final double kWheelPGain = .1;
         public static final double kWheelIGain = 0;
         public static final double kWheelDGain = 0;
 
@@ -78,64 +78,9 @@ public final class DrivetrainConstants {
         public static final MotorType kMotorType = MotorType.kBrushless;
         public static final int kStallCurrentLimit = 44; // Amps
         public static final int kFreeSpeedCurrentLimit = 2; // Amps
-        // Converts FROM motor rotations TO wheel tangent meters
-        public static final Conversion<Double, Double> kMotorsRotationsToWheelMeters =
-                Conversion.create(
-                        (motorRotations) -> {
-                            double gearRatio = Characteristics.kGearRatio;
-                            double wheelRadius = Characteristics.kWheelRadiusMeters;
-
-                            // output rotations at gearbox output.
-                            double wheelRotations = motorRotations * (1.0 / gearRatio);
-                            // get angular velocity from rpm in rad / s
-                            double wheelAngularVelocity = wheelRotations / 60.0 * 2 * Math.PI;
-                            // distance wheel has rotated tangentialy in meters
-                            double wheelMeters = wheelAngularVelocity * wheelRadius;
-                            return wheelMeters;
-                        },
-                        (wheelMeters) -> {
-                            double gearRatio = Characteristics.kGearRatio;
-                            double wheelRadius = Characteristics.kWheelRadiusMeters;
-
-                            // output rotations at gearbox output.
-                            double wheelRotations = wheelMeters / wheelRadius;
-                            // motor rotations at gearbox input.
-                            double motorRotations = wheelRotations * gearRatio;
-                            return motorRotations;
-                        });
-        // Converts FROM motor RPM TO wheel tangential mps
-        public static final Conversion<Double, Double> kMotorRPMToWheelMPS =
-                Conversion.create(
-                        (motorRPM) -> {
-                            return motorRPM
-                                    * 1.0
-                                    / 10.71
-                                    * 2
-                                    * Math.PI
-                                    * Units.inchesToMeters(3.0)
-                                    / 60.0;
-                            /*
-
-                            double wheelRPM = motorRPM * (1.0 / Characteristics.kGearRatio);
-                            double wheelAngularVelocity = (wheelRPM / 60.0) * (2 * Math.PI);
-                            double wheelTangentialVelocity = wheelAngularVelocity * Characteristics.kWheelRadiusMeters;
-                            return wheelTangentialVelocity;
-                            */
-                        },
-                        (wheelMPS) -> {
-                            return wheelMPS
-                                    * 60.0
-                                    / 2
-                                    / Math.PI
-                                    / Units.inchesToMeters(3.0)
-                                    * 10.71;
-                            /*
-                            double wheelAngularVelocity = wheelMPS / Characteristics.kWheelRadiusMeters;
-                            double wheelRPM = wheelAngularVelocity * 60.0;
-                            double motorRPM = wheelRPM / (1.0 / Characteristics.kGearRatio);
-                            return motorRPM;
-                            */
-                        });
+        public static final double kPositionConversionFactor = (1.0 / Characteristics.kGearRatio)
+                * (2.0 * Math.PI * Characteristics.kWheelRadiusMeters);
+        public static final double kVelocityConversionFactor = kPositionConversionFactor / 60.0;
     }
 
     public static final class Kinematics {

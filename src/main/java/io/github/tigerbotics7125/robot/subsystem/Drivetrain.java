@@ -111,7 +111,10 @@ public class Drivetrain extends SubsystemBase {
         motor.setSmartCurrentLimit(kStallCurrentLimit, kFreeSpeedCurrentLimit);
         motor.enableVoltageCompensation(kNominalVoltage);
 
-        mEncoders.add(motor.getEncoder());
+        RelativeEncoder encoder = motor.getEncoder();
+        mEncoders.add(encoder);
+        encoder.setPositionConversionFactor(kPositionConversionFactor);
+        encoder.setVelocityConversionFactor(kVelocityConversionFactor);
 
         SparkMaxPIDController pid = motor.getPIDController();
         mPIDControllers.add(pid);
@@ -121,30 +124,23 @@ public class Drivetrain extends SubsystemBase {
         pid.setOutputRange(-1, 1); // duty cycle
 
         // invert right side
-        if (motor.getDeviceId() % 2 == 0) motor.setInverted(true);
-        else motor.setInverted(false);
+        if (motor.getDeviceId() % 2 == 0) {
+            motor.setInverted(true);
+        }
+        else {
+            motor.setInverted(false);
+        }
 
+        // save config to smax
         motor.burnFlash();
 
         if (Robot.isSimulation())
             REVPhysicsSim.getInstance().addSparkMax(motor, kStallTorque, kFreeSpeed);
-
-        SmartDashboard.putNumber("ThetaP", kThetaPIDController.getP());
-        SmartDashboard.putNumber("ThetaI", kThetaPIDController.getI());
-        SmartDashboard.putNumber("ThetaD", kThetaPIDController.getD());
     }
 
     @Override
     public void periodic() {
         mPoseEstimator.updateWithTime(Timer.getFPGATimestamp(), getHeading(), getWheelPositions());
-
-        double p = SmartDashboard.getNumber("ThetaP", 0.0);
-        double i = SmartDashboard.getNumber("ThetaI", 0.0);
-        double d = SmartDashboard.getNumber("ThetaD", 0.0);
-
-        if (p != kThetaPIDController.getP()) kThetaPIDController.setP(p);
-        if (i != kThetaPIDController.getI()) kThetaPIDController.setP(i);
-        if (d != kThetaPIDController.getD()) kThetaPIDController.setP(d);
     }
 
     @Override
@@ -155,9 +151,7 @@ public class Drivetrain extends SubsystemBase {
         var deg =
                 Units.radiansToDegrees(
                                 mKinematics.toChassisSpeeds(getWheelSpeeds()).omegaRadiansPerSecond)
-                        * .02; // 20ms
-        // loop
-        // time
+                        * .02; // 20ms loop time
         mPigeon.getSimCollection().addHeading(deg);
     }
 
@@ -228,7 +222,6 @@ public class Drivetrain extends SubsystemBase {
                 mThetaPID.calculate(getHeading().getRadians(), mDesiredHeading.getRadians()); // *
         // DrivetrainConstants.Characteristics.kMaxRotationalVelocity;
         ChassisSpeeds desiredChassisSpeeds = new ChassisSpeeds(xSpeed, ySpeed, zSpeed);
-        System.out.println(desiredChassisSpeeds);
         setChassisSpeeds(desiredChassisSpeeds);
     }
 
@@ -318,6 +311,26 @@ public class Drivetrain extends SubsystemBase {
     /** @param targetSpeeds The wheel speeds to have the robot attempt to achieve. */
     public void setWheelSpeeds(MecanumDriveWheelSpeeds targetSpeeds) {
         // Ensure desired motor speeds are within acceptable values.
+        targetSpeeds.desaturate(DrivetrainConstants.Characteristics.kMaxLinearVelocity);
+
+        double fl = targetSpeeds.frontLeftMetersPerSecond;
+        double fr = targetSpeeds.frontRightMetersPerSecond;
+        double rl = targetSpeeds.rearLeftMetersPerSecond;
+        double rr = targetSpeeds.rearRightMetersPerSecond;
+
+        List<Double> wheelSpeeds = List.of(fl, fr, rl, rr);
+
+        for (int i = 0; i < 4; i++) {
+            mPIDControllers.get(i).setReference(wheelSpeeds.get(i), ControlType.kVelocity);
+            System.out.println();
+            System.out.println("targetSpeed: " + wheelSpeeds.get(i));
+            System.out.println("kylers number: " + ((mEncoders.get(i).getVelocity() * 0.5) - wheelSpeeds.get(i)) * DrivetrainConstants.Characteristics.kWheelPGain);
+        }
+
+
+
+        /*
+
 
         SmartDashboard.putString("desiredSpeeds", targetSpeeds.toString());
 
@@ -338,28 +351,7 @@ public class Drivetrain extends SubsystemBase {
             else if (duty < -1.0) duty = -1.0;
             mMotors.get(i).set(duty);
         }
-    }
-
-    public void setWheelPositions(MecanumDriveWheelPositions targetPositons) {
-
-        double fl =
-                kMotorsRotationsToWheelMeters.fromOutput(
-                        targetPositons.frontLeftMeters); // / kPositionConversionFactor;
-        double fr =
-                kMotorsRotationsToWheelMeters.fromOutput(
-                        targetPositons.frontRightMeters); // / kPositionConversionFactor;
-        double rl =
-                kMotorsRotationsToWheelMeters.fromOutput(
-                        targetPositons.rearLeftMeters); // / kPositionConversionFactor;
-        double rr =
-                kMotorsRotationsToWheelMeters.fromOutput(
-                        targetPositons.rearRightMeters); // / kPositionConversionFactor;
-
-        List<Double> wheelPositions = List.of(fl, fr, rl, rr);
-
-        for (int i = 0; i < 4; i++) {
-            mPIDControllers.get(i).setReference(wheelPositions.get(i), ControlType.kPosition);
-        }
+        */
     }
 
     /** Reset heading to 0. */
@@ -384,14 +376,6 @@ public class Drivetrain extends SubsystemBase {
     /** @return The robot's heading angle. */
     public Rotation2d getHeading() {
         return mPigeon.getRotation2d();
-        /*
-
-        double rads = mPigeon.getRotation2d().getRadians();
-
-        while (rads > Math.PI) rads -= 2 * Math.PI;
-        while (rads < -Math.PI) rads += 2 * Math.PI;
-        return new Rotation2d(rads);
-        */
     }
 
     public ChassisSpeeds getChassisSpeeds() {
@@ -401,18 +385,10 @@ public class Drivetrain extends SubsystemBase {
     /** @return The current wheel speeds. */
     public MecanumDriveWheelSpeeds getWheelSpeeds() {
 
-        double fl =
-                kMotorRPMToWheelMPS.fromInput(
-                        mEncoders.get(0).getVelocity()); // * kVelocityConversionFactor;
-        double fr =
-                kMotorRPMToWheelMPS.fromInput(
-                        mEncoders.get(1).getVelocity()); // * kVelocityConversionFactor;
-        double rl =
-                kMotorRPMToWheelMPS.fromInput(
-                        mEncoders.get(2).getVelocity()); // * kVelocityConversionFactor;
-        double rr =
-                kMotorRPMToWheelMPS.fromInput(
-                        mEncoders.get(3).getVelocity()); // * kVelocityConversionFactor;
+        double fl = mEncoders.get(0).getVelocity();
+        double fr = mEncoders.get(1).getVelocity();
+        double rl = mEncoders.get(2).getVelocity();
+        double rr = mEncoders.get(3).getVelocity();
 
         var speeds = new MecanumDriveWheelSpeeds(fl, fr, rl, rr);
         SmartDashboard.putString("actualWheelSpeeds", speeds.toString());
@@ -422,18 +398,10 @@ public class Drivetrain extends SubsystemBase {
 
     public MecanumDriveWheelPositions getWheelPositions() {
 
-        double fl =
-                kMotorsRotationsToWheelMeters.fromInput(
-                        mEncoders.get(0).getPosition()); // * kPositionConversionFactor;
-        double fr =
-                kMotorsRotationsToWheelMeters.fromInput(
-                        mEncoders.get(1).getPosition()); // * kPositionConversionFactor;
-        double rl =
-                kMotorsRotationsToWheelMeters.fromInput(
-                        mEncoders.get(2).getPosition()); // * kPositionConversionFactor;
-        double rr =
-                kMotorsRotationsToWheelMeters.fromInput(
-                        mEncoders.get(3).getPosition()); // * kPositionConversionFactor;
+        double fl = mEncoders.get(0).getPosition();
+        double fr = mEncoders.get(1).getPosition();
+        double rl = mEncoders.get(2).getPosition();
+        double rr = mEncoders.get(3).getPosition();
 
         return new MecanumDriveWheelPositions(fl, fr, rl, rr);
     }
