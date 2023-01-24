@@ -129,7 +129,8 @@ public class RobotContainer {
                                                     mDrivetrain.getRightMotors());
                                         },
                                         0.005,
-                                        mDrivetrain)).handleInterrupt(sysIdDriveLogger::sendData);
+                                        mDrivetrain))
+                        .handleInterrupt(sysIdDriveLogger::sendData);
             }
         } else {
             return Commands.print("No auto selected!");

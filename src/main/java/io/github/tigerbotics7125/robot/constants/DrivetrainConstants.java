@@ -69,7 +69,7 @@ public final class DrivetrainConstants {
 
         static {
             kThetaPIDController.setTolerance(kThetaPIDCutoff);
-            kThetaPIDController.enableContinuousInput(0.0 , 2.0 * Math.PI);
+            kThetaPIDController.enableContinuousInput(0.0, 2.0 * Math.PI);
         }
     }
 

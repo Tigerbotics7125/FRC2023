@@ -13,10 +13,6 @@ import static io.github.tigerbotics7125.robot.constants.DrivetrainConstants.Moto
 import static io.github.tigerbotics7125.robot.constants.DrivetrainConstants.Odometry.*;
 import static io.github.tigerbotics7125.robot.constants.RobotConstants.kNominalVoltage;
 
-import java.util.ArrayList;
-import java.util.List;
-import java.util.function.DoubleSupplier;
-
 import com.ctre.phoenix.motorcontrol.can.WPI_TalonSRX;
 import com.ctre.phoenix.sensors.WPI_PigeonIMU;
 import com.pathplanner.lib.PathPlannerTrajectory;
@@ -24,11 +20,10 @@ import com.pathplanner.lib.commands.PPMecanumControllerCommand;
 import com.revrobotics.CANSparkMax;
 import com.revrobotics.CANSparkMax.ControlType;
 import com.revrobotics.CANSparkMax.IdleMode;
-import com.revrobotics.SparkMaxPIDController.ArbFFUnits;
 import com.revrobotics.REVPhysicsSim;
 import com.revrobotics.RelativeEncoder;
 import com.revrobotics.SparkMaxPIDController;
-
+import com.revrobotics.SparkMaxPIDController.ArbFFUnits;
 import edu.wpi.first.math.controller.PIDController;
 import edu.wpi.first.math.controller.ProfiledPIDController;
 import edu.wpi.first.math.controller.SimpleMotorFeedforward;
@@ -47,6 +42,9 @@ import edu.wpi.first.wpilibj.smartdashboard.SmartDashboard;
 import edu.wpi.first.wpilibj2.command.*;
 import io.github.tigerbotics7125.robot.Robot;
 import io.github.tigerbotics7125.robot.constants.DrivetrainConstants;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.function.DoubleSupplier;
 
 public class Drivetrain extends SubsystemBase {
     public enum TurningMode {
@@ -106,7 +104,8 @@ public class Drivetrain extends SubsystemBase {
                         kVisionMeasurementStdDevs);
 
         Shuffleboard.getTab("drive").addNumber("heading", () -> getHeading().getRadians());
-        Shuffleboard.getTab("drive").addNumber("desiredHeading", () -> mDesiredHeading.getRadians());
+        Shuffleboard.getTab("drive")
+                .addNumber("desiredHeading", () -> mDesiredHeading.getRadians());
     }
 
     /** @param motor The motor to setup. */
@@ -148,7 +147,6 @@ public class Drivetrain extends SubsystemBase {
         mPoseEstimator.updateWithTime(Timer.getFPGATimestamp(), getHeading(), getWheelPositions());
         SmartDashboard.putString("actualSpeeds", getWheelSpeeds().toString());
         Shuffleboard.update();
-
     }
 
     @Override
@@ -334,7 +332,6 @@ public class Drivetrain extends SubsystemBase {
         targetSpeeds.desaturate(DrivetrainConstants.Characteristics.kMaxLinearVelocity);
         MecanumDriveWheelSpeeds currentSpeeds = getWheelSpeeds();
 
-
         double flTarg = targetSpeeds.frontLeftMetersPerSecond;
         double frTarg = targetSpeeds.frontRightMetersPerSecond;
         double rlTarg = targetSpeeds.rearLeftMetersPerSecond;
@@ -350,7 +347,14 @@ public class Drivetrain extends SubsystemBase {
         List<Double> current = List.of(flCurr, frCurr, rlCurr, rrCurr);
 
         for (int i = 0; i < 4; i++) {
-            mPIDControllers.get(i).setReference(target.get(i), ControlType.kVelocity, 0,  mFF.calculate(target.get(i)), ArbFFUnits.kVoltage);
+            mPIDControllers
+                    .get(i)
+                    .setReference(
+                            target.get(i),
+                            ControlType.kVelocity,
+                            0,
+                            mFF.calculate(target.get(i)),
+                            ArbFFUnits.kVoltage);
             System.out.println();
             System.out.println("targetSpeed: " + target.get(i));
             System.out.println(
