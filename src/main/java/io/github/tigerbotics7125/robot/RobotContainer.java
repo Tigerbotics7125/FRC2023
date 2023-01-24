@@ -11,15 +11,19 @@ import static io.github.tigerbotics7125.robot.constants.VisionConstants.*;
 import edu.wpi.first.math.geometry.Pose2d;
 import edu.wpi.first.math.geometry.Pose3d;
 import edu.wpi.first.wpilibj.RobotController;
+import edu.wpi.first.wpilibj.shuffleboard.Shuffleboard;
 import edu.wpi.first.wpilibj.smartdashboard.Field2d;
+import edu.wpi.first.wpilibj.smartdashboard.SendableChooser;
 import edu.wpi.first.wpilibj.smartdashboard.SmartDashboard;
-import edu.wpi.first.wpilibj2.command.Commands;
+import edu.wpi.first.wpilibj2.command.*;
 import io.github.tigerbotics7125.robot.subsystem.Drivetrain;
 import io.github.tigerbotics7125.robot.subsystem.Drivetrain.TurningMode;
 import io.github.tigerbotics7125.robot.subsystem.Vision;
+import io.github.tigerbotics7125.robot.sysid.SysIdMechanism;
+import io.github.tigerbotics7125.robot.sysid.logging.SysIdDrivetrainLogger;
+import io.github.tigerbotics7125.robot.sysid.logging.SysIdGeneralMechanismLogger;
 import io.github.tigerbotics7125.tigerlib.input.controller.XboxController;
 import io.github.tigerbotics7125.tigerlib.input.trigger.Trigger;
-import io.github.tigerbotics7125.tigerlib.input.trigger.Trigger.ActivationCondition;
 import java.util.ArrayList;
 import java.util.List;
 import org.photonvision.targeting.PhotonTrackedTarget;
@@ -33,21 +37,29 @@ public class RobotContainer {
     Drivetrain mDrivetrain = new Drivetrain();
     Vision mVision = new Vision();
 
-    // Command
+    boolean sysIdActive = true;
+    SysIdGeneralMechanismLogger sysIdMechLogger;
+    SysIdDrivetrainLogger sysIdDriveLogger;
+    SendableChooser<SubsystemBase> sysIdMechChooser;
+
     // AutoPilot mAutoPilot = new AutoPilot(mDrivetrain);
 
     Field2d mField = new Field2d();
 
-    boolean correcting = false;
-
     public RobotContainer() {
+        configureTriggers();
 
-        initDriver();
-        initOperator();
+        mDrivetrain.setName("Drivetrain");
+        mDrivetrain.setDefaultCommand(
+                mDrivetrain.drive(
+                        mDriver.leftY()::get,
+                        mDriver.leftX()::get,
+                        mDriver.rightX()::get,
+                        mDriver.rightY()::get));
 
-        initTriggers();
-
-        initDefaultCommands();
+        sysIdMechChooser = new SendableChooser<>();
+        sysIdMechChooser.setDefaultOption(mDrivetrain.getName(), mDrivetrain);
+        Shuffleboard.getTab("sysId").add(sysIdMechChooser);
 
         if (Robot.isSimulation()) {
             mField.getObject("AprilTags")
@@ -55,71 +67,73 @@ public class RobotContainer {
         }
     }
 
-    /** Initialize Driver Triggers. */
-    private void initDriver() {
+    private void configureTriggers() {
+        // Generic triggers
+
         mDriver.b().trigger(mDrivetrain::resetGyro);
         mDriver.lb().trigger(() -> mDrivetrain.setTurningMode(TurningMode.JOYSTICK_DIRECT));
         mDriver.rb().trigger(() -> mDrivetrain.setTurningMode(TurningMode.JOYSTICK_ANGLE));
         mDriver.y().trigger(() -> mDrivetrain.setTurningMode(TurningMode.HEADING_LOCK));
 
         // mDriver.start().debounce(.02).activate(ActivationCondition.WHILE_HIGH).trigger(mAutoPilot);
-
-        mDriver.back().trigger(() -> correcting = true);
-        mDriver.back().activate(ActivationCondition.ON_FALLING).trigger(() -> correcting = false);
     }
 
-    /** Initialize Operator Triggers. */
-    private void initOperator() {}
-
-    /** Initialize non-OI Triggers. */
-    private void initTriggers() {
-
-        mDrivetrain.setDefaultCommand(
-                Commands.run(
-                        () ->
-                                mDrivetrain.drive(
-                                        mDriver.leftY().get(),
-                                        mDriver.leftX().get(),
-                                        mDriver.rightX().get(),
-                                        mDriver.rightY().get()),
-                        mDrivetrain));
-
-        /*
-
-        new Trigger(RobotController::getUserButton)
-        .trigger(() -> mDrivetrain.setPose(new Pose2d(), new Rotation2d()));
-        new Trigger(RobotState::isDisabled)
-        .trigger(Commands.run(mDrivetrain::setCoastMode).ignoringDisable(true));
-        new Trigger(RobotState::isEnabled).trigger(mDrivetrain::setBrakeMode);
-
-        new Trigger(mVision::hasTargets)
-        .trigger(
-                () -> {
-                        double timestamp = mVision.getTimestamp();
-                        mVision.getRobotPoseEstimates(kAmbiguityThreshold)
-                        .forEach(
-                                (pose) -> {
-                                        mDrivetrain.addVisionMeasurement(
-                                                pose.toPose2d(), timestamp);
-                                            });
-                                    });
-                                    */
-    }
-
-    /** Set Subsystem's default commands. */
-    private void initDefaultCommands() {
-        /*
-
-        mDrivetrain.setDefaultCommand(
-                Commands.run(
-                        () ->
-                        mDrivetrain.drive(
-                                mDriver.leftY().get(),
-                                mDriver.leftX().get(),
-                                mDriver.rightX().get(),
-                                mDriver.rightY().get()),
-                                mDrivetrain));
-                                */
+    public Command getAutonomousCommand() {
+        if (sysIdActive) {
+            if (!sysIdMechChooser.getSelected().getName().equals(mDrivetrain.getName())) {
+                // Not drivetrain
+                sysIdMechLogger = new SysIdGeneralMechanismLogger();
+                Subsystem sysIdMechSubsystem = sysIdMechChooser.getSelected();
+                SysIdMechanism sysIdMech = (SysIdMechanism) sysIdMechSubsystem;
+                return Commands.runOnce(sysIdMechLogger::initLogging, sysIdMechSubsystem)
+                        .andThen(
+                                Commands.run(
+                                        () -> {
+                                            sysIdMechLogger.log(
+                                                    sysIdMechLogger.measureVoltage(
+                                                            List.of(sysIdMech.getMotor())),
+                                                    sysIdMech.getPosition(),
+                                                    sysIdMech.getVelocity());
+                                            sysIdMechLogger.setMotorControllers(
+                                                    sysIdMechLogger.getMotorVoltage(),
+                                                    List.of(sysIdMech.getMotor()));
+                                        },
+                                        sysIdMechSubsystem));
+            } else {
+                // drivetrain
+                sysIdDriveLogger = new SysIdDrivetrainLogger();
+                Subsystem sysIdDriveSubsystem = sysIdMechChooser.getSelected();
+                return Commands.runOnce(sysIdDriveLogger::initLogging, sysIdDriveSubsystem)
+                        .andThen(
+                                new NotifierCommand(
+                                        () -> {
+                                            sysIdDriveLogger.log(
+                                                    sysIdDriveLogger.measureVoltage(
+                                                            mDrivetrain.getLeftMotors()),
+                                                    sysIdDriveLogger.measureVoltage(
+                                                            mDrivetrain.getRightMotors()),
+                                                    mDrivetrain.getWheelPositions().frontLeftMeters,
+                                                    mDrivetrain.getWheelPositions()
+                                                            .frontRightMeters,
+                                                    mDrivetrain.getWheelSpeeds()
+                                                            .frontLeftMetersPerSecond,
+                                                    mDrivetrain.getWheelSpeeds()
+                                                            .frontRightMetersPerSecond,
+                                                    mDrivetrain.getHeading().getDegrees(),
+                                                    mDrivetrain.getGyroRate());
+                                            sysIdDriveLogger.setMotorControllers(
+                                                    sysIdDriveLogger.getLeftMotorVoltage(),
+                                                    mDrivetrain.getLeftMotors());
+                                            sysIdDriveLogger.setMotorControllers(
+                                                    sysIdDriveLogger.getRightMotorVoltage(),
+                                                    mDrivetrain.getRightMotors());
+                                        },
+                                        0.005,
+                                        mDrivetrain)).handleInterrupt(sysIdDriveLogger::sendData);
+            }
+        } else {
+            return Commands.print("No auto selected!");
+        }
     }
 
     /** Periodic call, always runs. */

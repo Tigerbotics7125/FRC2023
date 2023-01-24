@@ -55,21 +55,21 @@ public final class DrivetrainConstants {
 
         public static final ProfiledPIDController kThetaPIDController =
                 new ProfiledPIDController(
-                        1,
+                        5,
                         0,
                         0,
                         new TrapezoidProfile.Constraints(
                                 kMaxRotationalVelocity, kMaxRotationalAcceleration));
         // radians within goal to stop theta pid.
-        private static final double kThetaPIDCutoff = Units.degreesToRadians(1);
+        private static final double kThetaPIDCutoff = Units.degreesToRadians(5);
 
-        public static final double kWheelPGain = .1;
-        public static final double kWheelIGain = 0;
-        public static final double kWheelDGain = 0;
+        public static final double kWheelPGain = 0.1;
+        public static final double kWheelIGain = 0.0;
+        public static final double kWheelDGain = 0.0;
 
         static {
             kThetaPIDController.setTolerance(kThetaPIDCutoff);
-            kThetaPIDController.enableContinuousInput(-Math.PI, Math.PI);
+            kThetaPIDController.enableContinuousInput(0.0 , 2.0 * Math.PI);
         }
     }
 

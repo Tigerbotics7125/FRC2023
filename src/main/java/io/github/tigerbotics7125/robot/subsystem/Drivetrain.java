@@ -13,6 +13,10 @@ import static io.github.tigerbotics7125.robot.constants.DrivetrainConstants.Moto
 import static io.github.tigerbotics7125.robot.constants.DrivetrainConstants.Odometry.*;
 import static io.github.tigerbotics7125.robot.constants.RobotConstants.kNominalVoltage;
 
+import java.util.ArrayList;
+import java.util.List;
+import java.util.function.DoubleSupplier;
+
 import com.ctre.phoenix.motorcontrol.can.WPI_TalonSRX;
 import com.ctre.phoenix.sensors.WPI_PigeonIMU;
 import com.pathplanner.lib.PathPlannerTrajectory;
@@ -20,11 +24,14 @@ import com.pathplanner.lib.commands.PPMecanumControllerCommand;
 import com.revrobotics.CANSparkMax;
 import com.revrobotics.CANSparkMax.ControlType;
 import com.revrobotics.CANSparkMax.IdleMode;
+import com.revrobotics.SparkMaxPIDController.ArbFFUnits;
 import com.revrobotics.REVPhysicsSim;
 import com.revrobotics.RelativeEncoder;
 import com.revrobotics.SparkMaxPIDController;
+
 import edu.wpi.first.math.controller.PIDController;
 import edu.wpi.first.math.controller.ProfiledPIDController;
+import edu.wpi.first.math.controller.SimpleMotorFeedforward;
 import edu.wpi.first.math.estimator.MecanumDrivePoseEstimator;
 import edu.wpi.first.math.geometry.Pose2d;
 import edu.wpi.first.math.geometry.Rotation2d;
@@ -35,15 +42,11 @@ import edu.wpi.first.math.kinematics.MecanumDriveWheelPositions;
 import edu.wpi.first.math.kinematics.MecanumDriveWheelSpeeds;
 import edu.wpi.first.math.util.Units;
 import edu.wpi.first.wpilibj.Timer;
+import edu.wpi.first.wpilibj.shuffleboard.Shuffleboard;
 import edu.wpi.first.wpilibj.smartdashboard.SmartDashboard;
-import edu.wpi.first.wpilibj2.command.Command;
-import edu.wpi.first.wpilibj2.command.InstantCommand;
-import edu.wpi.first.wpilibj2.command.SequentialCommandGroup;
-import edu.wpi.first.wpilibj2.command.SubsystemBase;
+import edu.wpi.first.wpilibj2.command.*;
 import io.github.tigerbotics7125.robot.Robot;
 import io.github.tigerbotics7125.robot.constants.DrivetrainConstants;
-import java.util.ArrayList;
-import java.util.List;
 
 public class Drivetrain extends SubsystemBase {
     public enum TurningMode {
@@ -77,6 +80,8 @@ public class Drivetrain extends SubsystemBase {
     private boolean mTargetLock = false;
     private Rotation2d mTargetLockHeading = new Rotation2d();
 
+    private SimpleMotorFeedforward mFF = new SimpleMotorFeedforward(0.1, 2.8, 1.5);
+
     public Drivetrain() {
         mMotors =
                 List.of(
@@ -100,7 +105,8 @@ public class Drivetrain extends SubsystemBase {
                         kStateStdDevs,
                         kVisionMeasurementStdDevs);
 
-        kThetaPIDController.enableContinuousInput(-Math.PI, Math.PI);
+        Shuffleboard.getTab("drive").addNumber("heading", () -> getHeading().getRadians());
+        Shuffleboard.getTab("drive").addNumber("desiredHeading", () -> mDesiredHeading.getRadians());
     }
 
     /** @param motor The motor to setup. */
@@ -140,6 +146,9 @@ public class Drivetrain extends SubsystemBase {
     @Override
     public void periodic() {
         mPoseEstimator.updateWithTime(Timer.getFPGATimestamp(), getHeading(), getWheelPositions());
+        SmartDashboard.putString("actualSpeeds", getWheelSpeeds().toString());
+        Shuffleboard.update();
+
     }
 
     @Override
@@ -165,6 +174,18 @@ public class Drivetrain extends SubsystemBase {
      */
     public void addVisionMeasurement(Pose2d estimatedPose, double timestamp) {
         mPoseEstimator.addVisionMeasurement(estimatedPose, timestamp);
+    }
+
+    public Command drive(
+            DoubleSupplier x, DoubleSupplier y, DoubleSupplier z_x, DoubleSupplier z_y) {
+        return Commands.run(
+                () ->
+                        this.drive(
+                                x.getAsDouble(),
+                                y.getAsDouble(),
+                                z_x.getAsDouble(),
+                                z_y.getAsDouble()),
+                this);
     }
 
     /**
@@ -311,23 +332,46 @@ public class Drivetrain extends SubsystemBase {
     public void setWheelSpeeds(MecanumDriveWheelSpeeds targetSpeeds) {
         // Ensure desired motor speeds are within acceptable values.
         targetSpeeds.desaturate(DrivetrainConstants.Characteristics.kMaxLinearVelocity);
+        MecanumDriveWheelSpeeds currentSpeeds = getWheelSpeeds();
 
-        double fl = targetSpeeds.frontLeftMetersPerSecond;
-        double fr = targetSpeeds.frontRightMetersPerSecond;
-        double rl = targetSpeeds.rearLeftMetersPerSecond;
-        double rr = targetSpeeds.rearRightMetersPerSecond;
 
-        List<Double> wheelSpeeds = List.of(fl, fr, rl, rr);
+        double flTarg = targetSpeeds.frontLeftMetersPerSecond;
+        double frTarg = targetSpeeds.frontRightMetersPerSecond;
+        double rlTarg = targetSpeeds.rearLeftMetersPerSecond;
+        double rrTarg = targetSpeeds.rearRightMetersPerSecond;
+
+        List<Double> target = List.of(flTarg, frTarg, rlTarg, rrTarg);
+
+        double flCurr = currentSpeeds.frontLeftMetersPerSecond;
+        double frCurr = currentSpeeds.frontRightMetersPerSecond;
+        double rlCurr = currentSpeeds.rearLeftMetersPerSecond;
+        double rrCurr = currentSpeeds.rearRightMetersPerSecond;
+
+        List<Double> current = List.of(flCurr, frCurr, rlCurr, rrCurr);
 
         for (int i = 0; i < 4; i++) {
-            mPIDControllers.get(i).setReference(wheelSpeeds.get(i), ControlType.kVelocity);
+            mPIDControllers.get(i).setReference(target.get(i), ControlType.kVelocity, 0,  mFF.calculate(target.get(i)), ArbFFUnits.kVoltage);
             System.out.println();
-            System.out.println("targetSpeed: " + wheelSpeeds.get(i));
+            System.out.println("targetSpeed: " + target.get(i));
             System.out.println(
                     "kylers number: "
-                            + ((mEncoders.get(i).getVelocity() * 0.5) - wheelSpeeds.get(i))
+                            + ((mEncoders.get(i).getVelocity() * 0.5) - target.get(i))
                                     * DrivetrainConstants.Characteristics.kWheelPGain);
         }
+
+        SmartDashboard.putString("wheelSpeeds", targetSpeeds.toString());
+
+        MecanumDriveWheelSpeeds actual = getWheelSpeeds();
+        List<Double> error =
+                List.of(
+                        flTarg - actual.frontLeftMetersPerSecond,
+                        frTarg - actual.frontRightMetersPerSecond,
+                        rlTarg - actual.rearLeftMetersPerSecond,
+                        rrTarg - actual.rearRightMetersPerSecond);
+        SmartDashboard.putString("error", error.toString());
+
+        SmartDashboard.putNumber("flSetpoint", flTarg);
+        SmartDashboard.putNumber("flActual", actual.frontLeftMetersPerSecond);
 
         /*
 
@@ -412,5 +456,17 @@ public class Drivetrain extends SubsystemBase {
 
     public MecanumDriveKinematics getKinematics() {
         return mKinematics;
+    }
+
+    public List<CANSparkMax> getLeftMotors() {
+        return List.of(mMotors.get(0), mMotors.get(2));
+    }
+
+    public List<CANSparkMax> getRightMotors() {
+        return List.of(mMotors.get(1), mMotors.get(3));
+    }
+
+    public double getGyroRate() {
+        return -mPigeon.getRate();
     }
 }

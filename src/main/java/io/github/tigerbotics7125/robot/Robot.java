@@ -20,6 +20,11 @@ public class Robot extends CommandRobot {
     }
 
     @Override
+    public void autonomousInit() {
+        mRobotContainer.getAutonomousCommand().schedule();
+    }
+
+    @Override
     public void simulationPeriodic() {
         mRobotContainer.simulationPeriodic();
     }
