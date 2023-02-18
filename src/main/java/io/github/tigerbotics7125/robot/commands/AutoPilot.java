@@ -20,6 +20,8 @@ import edu.wpi.first.math.geometry.Transform2d;
 import edu.wpi.first.math.geometry.Translation2d;
 import edu.wpi.first.math.kinematics.ChassisSpeeds;
 import edu.wpi.first.wpilibj.Timer;
+import edu.wpi.first.wpilibj.smartdashboard.Field2d;
+import edu.wpi.first.wpilibj.smartdashboard.FieldObject2d;
 import edu.wpi.first.wpilibj.smartdashboard.SendableChooser;
 import edu.wpi.first.wpilibj.smartdashboard.SmartDashboard;
 import edu.wpi.first.wpilibj2.command.Command;
@@ -35,15 +37,18 @@ import java.util.Set;
 public class AutoPilot implements Command {
     private SendableChooser<FieldZone> mZoneChooser;
     private SendableChooser<Column> mGridChooser;
+    private final Field2d mDbgField;
+    private final FieldObject2d mPathFollwing;
+    private final FieldObject2d mPathGen;
 
     private final Drivetrain mDrivetrain;
     private final PathConstraints mPathConstraints;
 
     private final Timer mTimer;
     // The trajectory that gets followed
-    private PathPlannerTrajectory mActiveTraj;
+    private PathPlannerTrajectory mTrajFollowing;
     // The trajectory always being generated for DS view.
-    private PathPlannerTrajectory mTraj;
+    private PathPlannerTrajectory mTrajGen;
     private final PPHolonomicDriveController mController;
 
     public AutoPilot(Drivetrain drivetrain) {
@@ -58,12 +63,15 @@ public class AutoPilot implements Command {
         mGridChooser.setDefaultOption(Column.MID_CUBE.name(), Column.MID_CUBE);
         mGridChooser.addOption(Column.LEFT_CONE.name(), Column.LEFT_CONE);
         mGridChooser.addOption(Column.RIGHT_CONE.name(), Column.RIGHT_CONE);
+        mDbgField = new Field2d();
+        mPathFollwing = mDbgField.getObject("pathFollowing");
+        mPathGen = mDbgField.getObject("pathGen");
 
         mDrivetrain = drivetrain;
         mPathConstraints = new PathConstraints(kMaxVelocity, kMaxAcceleration);
 
         mTimer = new Timer();
-        mTraj = mActiveTraj = new PathPlannerTrajectory();
+        mTrajGen = mTrajFollowing = new PathPlannerTrajectory();
         mController = new PPHolonomicDriveController(kXController, kYController, kZController);
     }
 
@@ -74,12 +82,13 @@ public class AutoPilot implements Command {
 
     @Override
     public void initialize() {
-        mActiveTraj = mTraj;
+        mTrajFollowing = mTrajGen;
+        mPathFollwing.setPoses(mTrajFollowing.getStates().stream().map(s -> s.poseMeters).toList());
 
         mTimer.reset();
         mTimer.start();
 
-        PathPlannerServer.sendActivePath(mActiveTraj.getStates());
+        PathPlannerServer.sendActivePath(mTrajFollowing.getStates());
     }
 
     @Override
@@ -96,13 +105,13 @@ public class AutoPilot implements Command {
             return;
         }
 
-        if (mTimer.hasElapsed(mActiveTraj.getTotalTimeSeconds())) {
+        if (mTimer.hasElapsed(mTrajFollowing.getTotalTimeSeconds())) {
             // restart command.
             initialize();
         }
 
         double currentTime = mTimer.get();
-        PathPlannerState desiredState = (PathPlannerState) mActiveTraj.sample(currentTime);
+        PathPlannerState desiredState = (PathPlannerState) mTrajFollowing.sample(currentTime);
 
         Pose2d currentPose = mDrivetrain.getPose();
         PathPlannerServer.sendPathFollowingData(
@@ -120,7 +129,7 @@ public class AutoPilot implements Command {
         mTimer.stop();
 
         // Clear traj visualization.
-        mActiveTraj = new PathPlannerTrajectory();
+        mTrajFollowing = new PathPlannerTrajectory();
 
         // stop movement from perpetuating.
         mDrivetrain.setChassisSpeeds(new ChassisSpeeds());
@@ -155,7 +164,10 @@ public class AutoPilot implements Command {
         PathPoint finalPoint =
                 new PathPoint(finalPose.getTranslation(), heading, finalPose.getRotation());
 
-        mTraj = PathPlanner.generatePath(mPathConstraints, initialPoint, finalPoint);
+        mTrajGen = PathPlanner.generatePath(mPathConstraints, initialPoint, finalPoint);
+
+        // Put path on dbg field.
+        mPathGen.setPoses(mTrajGen.getStates().stream().map(s -> s.poseMeters).toList());
     }
 
     public Pose2d getDesiredPose() {
@@ -164,10 +176,10 @@ public class AutoPilot implements Command {
     }
 
     public PathPlannerTrajectory getActiveTrajectory() {
-        return mActiveTraj;
+        return mTrajFollowing;
     }
 
     public PathPlannerTrajectory getTrajectory() {
-        return mTraj;
+        return mTrajGen;
     }
 }
