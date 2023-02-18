@@ -5,18 +5,11 @@
  */
 package io.github.tigerbotics7125.robot.subsystem;
 
-import static io.github.tigerbotics7125.robot.constants.DrivetrainConstants.CAN.*;
-import static io.github.tigerbotics7125.robot.constants.DrivetrainConstants.Characteristics.*;
-import static io.github.tigerbotics7125.robot.constants.DrivetrainConstants.DefaultDrivingOptions.*;
-import static io.github.tigerbotics7125.robot.constants.DrivetrainConstants.Kinematics.*;
-import static io.github.tigerbotics7125.robot.constants.DrivetrainConstants.MotorValues.*;
-import static io.github.tigerbotics7125.robot.constants.DrivetrainConstants.Odometry.*;
+import static io.github.tigerbotics7125.robot.constants.DrivetrainConstants.*;
 import static io.github.tigerbotics7125.robot.constants.RobotConstants.kNominalVoltage;
 
 import com.ctre.phoenix.motorcontrol.can.WPI_TalonSRX;
 import com.ctre.phoenix.sensors.WPI_PigeonIMU;
-import com.pathplanner.lib.PathPlannerTrajectory;
-import com.pathplanner.lib.commands.PPMecanumControllerCommand;
 import com.revrobotics.CANSparkMax;
 import com.revrobotics.CANSparkMax.ControlType;
 import com.revrobotics.CANSparkMax.IdleMode;
@@ -24,7 +17,6 @@ import com.revrobotics.REVPhysicsSim;
 import com.revrobotics.RelativeEncoder;
 import com.revrobotics.SparkMaxPIDController;
 import com.revrobotics.SparkMaxPIDController.ArbFFUnits;
-import edu.wpi.first.math.controller.PIDController;
 import edu.wpi.first.math.controller.ProfiledPIDController;
 import edu.wpi.first.math.controller.SimpleMotorFeedforward;
 import edu.wpi.first.math.estimator.MecanumDrivePoseEstimator;
@@ -37,15 +29,24 @@ import edu.wpi.first.math.kinematics.MecanumDriveWheelPositions;
 import edu.wpi.first.math.kinematics.MecanumDriveWheelSpeeds;
 import edu.wpi.first.math.util.Units;
 import edu.wpi.first.wpilibj.Timer;
+import edu.wpi.first.wpilibj.drive.MecanumDrive;
 import edu.wpi.first.wpilibj.shuffleboard.Shuffleboard;
-import edu.wpi.first.wpilibj.smartdashboard.SmartDashboard;
-import edu.wpi.first.wpilibj2.command.*;
+import edu.wpi.first.wpilibj.shuffleboard.ShuffleboardTab;
+import edu.wpi.first.wpilibj2.command.Command;
+import edu.wpi.first.wpilibj2.command.Commands;
+import edu.wpi.first.wpilibj2.command.SubsystemBase;
 import io.github.tigerbotics7125.robot.Robot;
-import io.github.tigerbotics7125.robot.constants.DrivetrainConstants;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.function.DoubleSupplier;
+import org.photonvision.EstimatedRobotPose;
 
+/**
+ * This class controls the mecanum drivetrain of the robot. It features open and closed loop control
+ * of the wheels, feedforward, PID controlled heading, odometry and vision pose estimation.
+ *
+ * @author Jeffrey Morris | Tigerbotics 7125
+ */
 public class Drivetrain extends SubsystemBase {
     public enum TurningMode {
         /** Joystick inputs are directly mapped to the rotation of the drivetrain. */
@@ -61,71 +62,81 @@ public class Drivetrain extends SubsystemBase {
         TARGET_LOCK;
     }
 
+    // controllers and sensors
     private final List<CANSparkMax> mMotors;
     private final List<RelativeEncoder> mEncoders;
     private final List<SparkMaxPIDController> mPIDControllers;
     private final WPI_PigeonIMU mPigeon;
 
+    // odometry
     private final MecanumDriveKinematics mKinematics;
     private final MecanumDrivePoseEstimator mPoseEstimator;
 
-    private final ProfiledPIDController mThetaPID = kThetaPIDController;
+    // pid control
+    private final ProfiledPIDController mThetaPID = THETA_PID_CONTROLLER;
     private Rotation2d mDesiredHeading = new Rotation2d();
-    private TurningMode mTurningMode = kTurningMode;
 
-    private boolean mFieldOriented = kFieldOriented;
+    // driving options
+    private boolean mFieldOriented = FIELD_ORIENTED_DEFAULT;
+    private TurningMode mTurningMode = TURNING_MODE_DEFAULT;
 
-    private boolean mTargetLock = false;
-    private Rotation2d mTargetLockHeading = new Rotation2d();
-
+    // feed forward control
+    // TODO: add ff constants to DT constants file.
     private SimpleMotorFeedforward mFF = new SimpleMotorFeedforward(0.1, 2.8, 1.5);
 
+    /**
+     * @param cameras A list of all camera-translation pairs used on the robot for vision detection,
+     *     this is for calculating robot pose from vision.
+     */
     public Drivetrain() {
         mMotors =
                 List.of(
-                        new CANSparkMax(kFLID, kMotorType),
-                        new CANSparkMax(kFRID, kMotorType),
-                        new CANSparkMax(kRLID, kMotorType),
-                        new CANSparkMax(kRRID, kMotorType));
+                        new CANSparkMax(FRONT_LEFT_ID, MOTOR_TYPE),
+                        new CANSparkMax(FRONT_RIGHT_ID, MOTOR_TYPE),
+                        new CANSparkMax(REAR_LEFT_ID, MOTOR_TYPE),
+                        new CANSparkMax(REAR_RIGHT_ID, MOTOR_TYPE));
         mEncoders = new ArrayList<>();
         mPIDControllers = new ArrayList<>();
-        mMotors.forEach(this::initMotor);
+        mMotors.forEach(this::configureMotor);
 
-        mPigeon = new WPI_PigeonIMU(new WPI_TalonSRX(kPigeonID));
+        mPigeon = new WPI_PigeonIMU(new WPI_TalonSRX(PIGEON_ID));
 
-        mKinematics = new MecanumDriveKinematics(kFLOffset, kFROffset, kRLOffset, kRROffset);
+        mKinematics = KINEMATICS;
         mPoseEstimator =
                 new MecanumDrivePoseEstimator(
-                        mKinematics,
-                        getHeading(),
-                        getWheelPositions(),
-                        new Pose2d(),
-                        kStateStdDevs,
-                        kVisionMeasurementStdDevs);
+                        mKinematics, getHeading(), getWheelPositions(), new Pose2d());
 
-        Shuffleboard.getTab("drive").addNumber("heading", () -> getHeading().getRadians());
-        Shuffleboard.getTab("drive")
-                .addNumber("desiredHeading", () -> mDesiredHeading.getRadians());
+        // Setup dashboard values.
+        ShuffleboardTab driveTab = Shuffleboard.getTab("drive");
+        driveTab.addNumber("Current Heading (rad)", () -> getHeading().getRadians());
+        driveTab.addNumber("Desired Heading (rad)", () -> mDesiredHeading.getRadians());
+        driveTab.addBoolean("Field Oriented (bool)", () -> mFieldOriented);
+        driveTab.addString("Turning Mode (str)", () -> mTurningMode.name());
     }
 
-    /** @param motor The motor to setup. */
-    private void initMotor(CANSparkMax motor) {
+    /**
+     * Configures a motor, its encoder, and its pid controller.
+     *
+     * @param motor The motor to setup.
+     */
+    private void configureMotor(CANSparkMax motor) {
         motor.restoreFactoryDefaults();
 
         motor.setIdleMode(IdleMode.kCoast);
-        motor.setSmartCurrentLimit(kStallCurrentLimit, kFreeSpeedCurrentLimit);
+        motor.setSmartCurrentLimit(
+                STALL_CURRENT_LIMIT_AMPS, FREE_SPEED_CURRENT_LIMIT_AMPS, (int) FREE_SPEED_RPM);
         motor.enableVoltageCompensation(kNominalVoltage);
 
         RelativeEncoder encoder = motor.getEncoder();
         mEncoders.add(encoder);
-        encoder.setPositionConversionFactor(kPositionConversionFactor);
-        encoder.setVelocityConversionFactor(kVelocityConversionFactor);
+        encoder.setPositionConversionFactor(POSITION_CONVERSION_FACTOR);
+        encoder.setVelocityConversionFactor(VELOCITY_CONVERSION_FACTOR);
 
         SparkMaxPIDController pid = motor.getPIDController();
         mPIDControllers.add(pid);
-        pid.setP(kWheelPGain);
-        pid.setI(kWheelIGain);
-        pid.setD(kWheelDGain);
+        pid.setP(WHEEL_P_GAIN);
+        pid.setI(WHEEL_I_GAIN);
+        pid.setD(WHEEL_D_GAIN);
         pid.setOutputRange(-1, 1); // duty cycle
 
         // invert right side
@@ -135,30 +146,46 @@ public class Drivetrain extends SubsystemBase {
             motor.setInverted(false);
         }
 
-        // save config to smax
+        // save config to motor controller
         motor.burnFlash();
 
         if (Robot.isSimulation())
-            REVPhysicsSim.getInstance().addSparkMax(motor, kStallTorque, kFreeSpeed);
+            REVPhysicsSim.getInstance()
+                    .addSparkMax(motor, STALL_TORQUE_NEWTON_METERS, FREE_SPEED_RPM);
     }
 
     @Override
     public void periodic() {
+        // update the pose estimation with the current odometry data.
         mPoseEstimator.updateWithTime(Timer.getFPGATimestamp(), getHeading(), getWheelPositions());
-        SmartDashboard.putString("actualSpeeds", getWheelSpeeds().toString());
-        Shuffleboard.update();
     }
 
     @Override
     public void simulationPeriodic() {
-        // Update motors.
-        REVPhysicsSim.getInstance().run();
-        // Update heading, (Not accurate, but functional).
+        // update sim because its wack sometimes.
         var deg =
                 Units.radiansToDegrees(
                                 mKinematics.toChassisSpeeds(getWheelSpeeds()).omegaRadiansPerSecond)
                         * .02; // 20ms loop time
         mPigeon.getSimCollection().addHeading(deg);
+
+        /**
+         * The following wheel position shenenigan fixes the super slow movement in sim. I still
+         * don't know whats going on, the velocity is correct but the position is stupid so here is
+         * the easy solution; just set it manually based on velocity duh.
+         */
+        var ws = getWheelSpeeds();
+        // convert speed to meters given the loop time.
+        double flm = ws.frontLeftMetersPerSecond * .02;
+        double frm = ws.frontRightMetersPerSecond * .02;
+        double rlm = ws.rearLeftMetersPerSecond * .02;
+        double rrm = ws.rearRightMetersPerSecond * .02;
+
+        List<Double> pos = List.of(flm, frm, rlm, rrm);
+
+        for (int i = 0; i < 4; i++) {
+            mEncoders.get(i).setPosition(mEncoders.get(i).getPosition() + pos.get(i));
+        }
     }
 
     /** Disables all motor output. */
@@ -166,124 +193,96 @@ public class Drivetrain extends SubsystemBase {
         mMotors.forEach(CANSparkMax::disable);
     }
 
-    /**
-     * @param estimatedPose The estimated pose from vision target.
-     * @param timestamp The timestamp the measurement is from.
-     */
-    public void addVisionMeasurement(Pose2d estimatedPose, double timestamp) {
-        mPoseEstimator.addVisionMeasurement(estimatedPose, timestamp);
+    public void addVisionEstimate(EstimatedRobotPose pose) {
+        mPoseEstimator.addVisionMeasurement(pose.estimatedPose.toPose2d(), pose.timestampSeconds);
     }
 
-    public Command drive(
-            DoubleSupplier x, DoubleSupplier y, DoubleSupplier z_x, DoubleSupplier z_y) {
+    /**
+     * The rotation axes are the same orientation as the translational ones, pretend you are looking
+     * straight down from above the robot, left-right is the y axis, and front-back is the x axis.
+     *
+     * @param x X axis input, forwards is positive.
+     * @param y Y axis input, left is positive.
+     * @param z_x Rotation x input, forwards is positive. Used only for {@link
+     *     TurningMode#JOYSTICK_ANGLE}.
+     * @param z_y Rotation y input, left is positive. Also used for {@link
+     *     TurningMode#JOYSTICK_DIRECT}, where positive correlates to CCW rotation.
+     * @param openLoop Whether to use open or closed loop control.
+     * @return A Command which uses the given suppliers and drives the drivetrain.
+     */
+    public Command driveCmd(
+            DoubleSupplier x,
+            DoubleSupplier y,
+            DoubleSupplier z_x,
+            DoubleSupplier z_y,
+            boolean openLoop) {
         return Commands.run(
                 () ->
                         this.drive(
                                 x.getAsDouble(),
                                 y.getAsDouble(),
                                 z_x.getAsDouble(),
-                                z_y.getAsDouble()),
+                                z_y.getAsDouble(),
+                                openLoop),
                 this);
     }
 
     /**
-     * @param x Input in the forwards direction. [-1, 1]
-     * @param y Input in the left direction. [-1, 1]
-     * @param z_x X axis of the desired heading AND turning input. [-1, 1]
-     * @param z_y Y axis of the desired heading. [-1, 1]
+     * The rotation axes are the same orientation as the translational ones, pretend you are looking
+     * straight down from above the robot, left-right is the y axis, and front-back is the x axis.
+     *
+     * @param x X axis input, forwards is positive.
+     * @param y Y axis input, left is positive.
+     * @param z_x Rotation x input, forwards is positive. Used only for {@link
+     *     TurningMode#JOYSTICK_ANGLE}.
+     * @param z_y Rotation y input, left is positive. Also used for {@link
+     *     TurningMode#JOYSTICK_DIRECT}, where positive correlates to CCW rotation.
+     * @param openLoop Whether to use open or closed loop control.
      */
-    public void drive(double x, double y, double z_x, double z_y) {
+    public void drive(double x, double y, double z_x, double z_y, boolean openLoop) {
 
-        // determine desired heading
-        boolean noZInput = false;
-        if (z_x == 0.0 && z_y == 0.0) {
-            noZInput = true;
-        }
+        // Determines if there is rotation input.
+        boolean noRotationInput = z_x == 0.0 && z_y == 0.0;
+        // Determine a desired heading depending on the turning mode.
         mDesiredHeading =
                 switch (mTurningMode) {
-                    case JOYSTICK_DIRECT -> {
-                        // Allows for standard roatation concept, but allows it to be
-                        // controlled
-                        // by the PID controller, which will also keep it constrained.
-                        if (mTargetLock && noZInput) yield mTargetLockHeading;
-                        else
-                            yield new Rotation2d(Math.atan2(z_x, -Math.abs(z_x) + 1))
-                                    .rotateBy(getHeading());
-                    }
-                    case HEADING_LOCK -> {
-                        yield mDesiredHeading;
-                    }
-                    case JOYSTICK_ANGLE -> {
-                        if (mTargetLock && noZInput) yield mTargetLockHeading;
-                        if (noZInput) yield kDefaultHeading;
-                        else yield new Rotation2d(Math.atan2(z_x, z_y));
-                    }
-                    case TARGET_LOCK -> {
-                        yield mTargetLockHeading;
-                    }
-                    default -> {
-                        yield kDefaultHeading;
-                    }
+                    case JOYSTICK_DIRECT -> getHeading()
+                            .rotateBy(new Rotation2d(z_y, -Math.abs(z_y) + 1));
+                    case JOYSTICK_ANGLE -> noRotationInput
+                            ? HEADING_DEFAULT
+                            : new Rotation2d(z_x, z_y);
+                    case HEADING_LOCK -> mDesiredHeading;
+                    default -> HEADING_DEFAULT;
                 };
 
-        // Rotate inputs for field oriented driving.
-        Translation2d input = new Translation2d(x * kMaxLinearVelocity, y * kMaxLinearVelocity);
+        /**
+         * Input translation, in units of %on for open loop, and m/s for closed loop, if this
+         * drivetrain is in field oriented control; then the input will be rotated to accomodate.
+         */
+        Translation2d input = new Translation2d(x, y);
+        if (!openLoop) input = input.times(MAX_LINEAR_VELOCITY_MPS);
         if (mFieldOriented) input = input.rotateBy(getHeading().unaryMinus());
 
-        SmartDashboard.putNumber("desiredHeading", mDesiredHeading.getDegrees());
-        SmartDashboard.putNumber("currentHeading", getHeading().getDegrees());
+        /** Rotation input, in units of %on for open loop, and rad/s for closed loop. */
+        double thetaSpeed;
+        if (openLoop) {
+            thetaSpeed = z_y;
+        } else {
+            thetaSpeed =
+                    mThetaPID.calculate(getHeading().getRadians(), mDesiredHeading.getRadians());
+        }
 
-        // Convert chassis speeds to individual wheel speeds.
-        double xSpeed = input.getX();
-        double ySpeed = input.getY();
-        double zSpeed =
-                mThetaPID.calculate(getHeading().getRadians(), mDesiredHeading.getRadians()); // *
-        // DrivetrainConstants.Characteristics.kMaxRotationalVelocity;
-        ChassisSpeeds desiredChassisSpeeds = new ChassisSpeeds(xSpeed, ySpeed, zSpeed);
-        setChassisSpeeds(desiredChassisSpeeds);
-    }
-
-    public Command followTrajectoryCommand(PathPlannerTrajectory traj, boolean isFirstPath) {
-        return new SequentialCommandGroup(
-                new InstantCommand(
-                        () -> {
-                            // Reset odometry for the first path you run during auto
-                            if (isFirstPath) {
-                                this.setPose(
-                                        traj.getInitialHolonomicPose(),
-                                        traj.getInitialHolonomicPose().getRotation());
-                            }
-                        }),
-                new PPMecanumControllerCommand(
-                        traj,
-                        this::getPose,
-                        mKinematics,
-                        new PIDController(1, 0, 0),
-                        new PIDController(1, 0, 0),
-                        new PIDController(1, 0, 0),
-                        kMaxLinearVelocity,
-                        this::setWheelSpeeds,
-                        this));
+        // set outputs
+        if (openLoop) {
+            setWheelSpeeds(MecanumDrive.driveCartesianIK(input.getX(), input.getY(), thetaSpeed));
+        } else {
+            setChassisSpeeds(new ChassisSpeeds(input.getX(), input.getY(), thetaSpeed));
+        }
     }
 
     //
     // SETTERS
     //
-
-    /** @param heading The heading to lock to. Set heading to null to cancel target lock. */
-    public void setTargetLock(Rotation2d heading) {
-        mTargetLockHeading = heading;
-    }
-
-    /** Enable target locking. */
-    public void enableTargetLock(Rotation2d heading) {
-        setTargetLock(heading);
-    }
-
-    /** Disable target locking. */
-    public void disableTargetLock() {
-        setTargetLock(null);
-    }
 
     /** @param turningMode {@link TurningMode} to set the drivetrain to. */
     public void setTurningMode(TurningMode turningMode) {
@@ -293,16 +292,6 @@ public class Drivetrain extends SubsystemBase {
     /** @param fieldOriented Whether to drive field oriented or robot oriented. */
     public void setFieldOriented(boolean fieldOriented) {
         mFieldOriented = fieldOriented;
-    }
-
-    /** Sets the idle mode to coast. */
-    public void setCoastMode() {
-        setIdleMode(CANSparkMax.IdleMode.kCoast);
-    }
-
-    /** Sets the idle mode to brake. */
-    public void setBrakeMode() {
-        setIdleMode(CANSparkMax.IdleMode.kBrake);
     }
 
     /** @param idleMode The idle mode to set the motors to. */
@@ -326,80 +315,42 @@ public class Drivetrain extends SubsystemBase {
         setWheelSpeeds(mKinematics.toWheelSpeeds(targetSpeeds));
     }
 
+    /**
+     * Used for open loop driving.
+     *
+     * @param speeds The wheel speeds in %on to have the robot drive by.
+     */
+    public void setWheelSpeeds(MecanumDrive.WheelSpeeds speeds) {
+        List<Double> duties =
+                List.of(speeds.frontLeft, speeds.frontRight, speeds.rearLeft, speeds.rearRight);
+
+        for (int i = 0; i < 4; i++) {
+            mMotors.get(i).set(duties.get(i));
+        }
+    }
+
     /** @param targetSpeeds The wheel speeds to have the robot attempt to achieve. */
     public void setWheelSpeeds(MecanumDriveWheelSpeeds targetSpeeds) {
         // Ensure desired motor speeds are within acceptable values.
-        targetSpeeds.desaturate(DrivetrainConstants.Characteristics.kMaxLinearVelocity);
-        MecanumDriveWheelSpeeds currentSpeeds = getWheelSpeeds();
+        targetSpeeds.desaturate(MAX_LINEAR_VELOCITY_MPS);
 
         double flTarg = targetSpeeds.frontLeftMetersPerSecond;
         double frTarg = targetSpeeds.frontRightMetersPerSecond;
         double rlTarg = targetSpeeds.rearLeftMetersPerSecond;
         double rrTarg = targetSpeeds.rearRightMetersPerSecond;
 
-        List<Double> target = List.of(flTarg, frTarg, rlTarg, rrTarg);
-
-        double flCurr = currentSpeeds.frontLeftMetersPerSecond;
-        double frCurr = currentSpeeds.frontRightMetersPerSecond;
-        double rlCurr = currentSpeeds.rearLeftMetersPerSecond;
-        double rrCurr = currentSpeeds.rearRightMetersPerSecond;
-
-        List<Double> current = List.of(flCurr, frCurr, rlCurr, rrCurr);
+        List<Double> targets = List.of(flTarg, frTarg, rlTarg, rrTarg);
 
         for (int i = 0; i < 4; i++) {
             mPIDControllers
                     .get(i)
                     .setReference(
-                            target.get(i),
+                            targets.get(i),
                             ControlType.kVelocity,
                             0,
-                            mFF.calculate(target.get(i)),
+                            mFF.calculate(targets.get(i)),
                             ArbFFUnits.kVoltage);
-            System.out.println();
-            System.out.println("targetSpeed: " + target.get(i));
-            System.out.println(
-                    "kylers number: "
-                            + ((mEncoders.get(i).getVelocity() * 0.5) - target.get(i))
-                                    * DrivetrainConstants.Characteristics.kWheelPGain);
         }
-
-        SmartDashboard.putString("wheelSpeeds", targetSpeeds.toString());
-
-        MecanumDriveWheelSpeeds actual = getWheelSpeeds();
-        List<Double> error =
-                List.of(
-                        flTarg - actual.frontLeftMetersPerSecond,
-                        frTarg - actual.frontRightMetersPerSecond,
-                        rlTarg - actual.rearLeftMetersPerSecond,
-                        rrTarg - actual.rearRightMetersPerSecond);
-        SmartDashboard.putString("error", error.toString());
-
-        SmartDashboard.putNumber("flSetpoint", flTarg);
-        SmartDashboard.putNumber("flActual", actual.frontLeftMetersPerSecond);
-
-        /*
-
-
-        SmartDashboard.putString("desiredSpeeds", targetSpeeds.toString());
-
-        double maxSpeed = DrivetrainConstants.Characteristics.kRunningLinearVelocity;
-        double fl = targetSpeeds.frontLeftMetersPerSecond / maxSpeed;
-        double fr = targetSpeeds.frontRightMetersPerSecond / maxSpeed;
-        double rl = targetSpeeds.rearLeftMetersPerSecond / maxSpeed;
-        double rr = targetSpeeds.rearRightMetersPerSecond / maxSpeed;
-
-        // Convert wheel speeds to a list, because it makes applying it easier.
-        List<Double> wheelSpeeds = List.of(fl, fr, rl, rr);
-
-        SmartDashboard.putString("rpm setpoint", wheelSpeeds.toString());
-
-        for (int i = 0; i < 4; i++) {
-            double duty = wheelSpeeds.get(i);
-            if (duty > 1.0) duty = 1.0;
-            else if (duty < -1.0) duty = -1.0;
-            mMotors.get(i).set(duty);
-        }
-        */
     }
 
     /** Reset heading to 0. */
@@ -438,10 +389,7 @@ public class Drivetrain extends SubsystemBase {
         double rl = mEncoders.get(2).getVelocity();
         double rr = mEncoders.get(3).getVelocity();
 
-        var speeds = new MecanumDriveWheelSpeeds(fl, fr, rl, rr);
-        SmartDashboard.putString("actualWheelSpeeds", speeds.toString());
-
-        return speeds;
+        return new MecanumDriveWheelSpeeds(fl, fr, rl, rr);
     }
 
     public MecanumDriveWheelPositions getWheelPositions() {
