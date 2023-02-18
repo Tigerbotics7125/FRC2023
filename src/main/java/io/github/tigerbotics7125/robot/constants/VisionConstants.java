@@ -14,7 +14,7 @@ import org.photonvision.PhotonTargetSortMode;
 public final class VisionConstants {
 
     public static final class Sim {
-        public static final double kCamDiagFOVDegrees = 67.0;
+        public static final double kCamDiagFOVDegrees = 67.8011799307;
 
         // also just max target detection distance.
         public static final double kMaxLEDRangeMeters = Units.feetToMeters(30);
@@ -23,7 +23,7 @@ public final class VisionConstants {
         public static final int kMinTargetArea = 10; // pixels^2
     }
 
-    public static final String kCameraName = "OV5647";
+    public static final String kCameraName = "PiCam";
 
     public static final PhotonTargetSortMode kSortingMode = PhotonTargetSortMode.Largest;
     public static final double kAmbiguityThreshold = 0.2;
@@ -34,7 +34,7 @@ public final class VisionConstants {
                             new Pose3d(
                                     0,
                                     0,
-                                    Units.feetToMeters(0.5),
-                                    new Rotation3d(0, Units.degreesToRadians(10), 0)))
+                                    Units.inchesToMeters(24),
+                                    new Rotation3d(0, Units.degreesToRadians(-5), 0)))
                     .inverse();
 }

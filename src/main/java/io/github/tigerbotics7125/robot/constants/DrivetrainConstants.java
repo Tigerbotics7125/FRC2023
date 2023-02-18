@@ -6,103 +6,90 @@
 package io.github.tigerbotics7125.robot.constants;
 
 import com.revrobotics.CANSparkMaxLowLevel.MotorType;
-import edu.wpi.first.math.Matrix;
-import edu.wpi.first.math.VecBuilder;
 import edu.wpi.first.math.controller.ProfiledPIDController;
 import edu.wpi.first.math.geometry.Rotation2d;
 import edu.wpi.first.math.geometry.Translation2d;
-import edu.wpi.first.math.numbers.N1;
-import edu.wpi.first.math.numbers.N3;
+import edu.wpi.first.math.kinematics.MecanumDriveKinematics;
 import edu.wpi.first.math.trajectory.TrapezoidProfile;
+import edu.wpi.first.math.trajectory.TrapezoidProfile.Constraints;
 import edu.wpi.first.math.util.Units;
 import io.github.tigerbotics7125.robot.subsystem.Drivetrain.TurningMode;
 
 public final class DrivetrainConstants {
 
-    public static final class DefaultDrivingOptions {
-        public static final boolean kFieldOriented = true;
-        public static final TurningMode kTurningMode = TurningMode.JOYSTICK_ANGLE;
-        public static final Rotation2d kDefaultHeading = new Rotation2d();
-    }
+    // Default characteristics
+    public static final boolean FIELD_ORIENTED_DEFAULT = true;
+    public static final TurningMode TURNING_MODE_DEFAULT = TurningMode.JOYSTICK_ANGLE;
+    public static final Rotation2d HEADING_DEFAULT = new Rotation2d();
 
-    public static final class CAN {
-        public static final int kFLID = 1;
-        public static final int kFRID = 2;
-        public static final int kRLID = 3;
-        public static final int kRRID = 4;
-        // fl, fr, rl, rr
-        public static final int[] kDTIDs = new int[] {1, 2, 3, 4};
-        public static final int kPigeonID = 1;
-    }
+    // CAN
+    public static final int FRONT_LEFT_ID = 1;
+    public static final int FRONT_RIGHT_ID = 2;
+    public static final int REAR_LEFT_ID = 3;
+    public static final int REAR_RIGHT_ID = 4;
+    public static final int PIGEON_ID = 1;
 
-    public static final class Characteristics {
-        public static final double kWheelRadiusMeters = Units.inchesToMeters(6.0) / 2.0;
-        public static final double kGearRatio = 10.71; // input
-        // get from AM website
-        public static final float kStallTorque = 55.697001316f; // NM
-        public static final float kFreeSpeed = 529.97f; // RPM
+    // Kinematics
+    private static final double TRACK_WIDTH_METERS = 0.558145;
+    private static final double TRACK_LENGTH_METERS = 0.517142;
+    private static final Translation2d FRONT_LEFT_OFFSET =
+            new Translation2d(TRACK_LENGTH_METERS / 2.0, -TRACK_WIDTH_METERS / 2.0);
+    private static final Translation2d FRONT_RIGHT_OFFSET =
+            new Translation2d(TRACK_LENGTH_METERS / 2.0, TRACK_WIDTH_METERS / 2.0);
+    private static final Translation2d REAR_LEFT_OFFSET =
+            new Translation2d(-TRACK_LENGTH_METERS / 2.0, -TRACK_WIDTH_METERS / 2.0);
+    private static final Translation2d REAR_RIGHT_OFFSET =
+            new Translation2d(-TRACK_LENGTH_METERS / 2.0, TRACK_WIDTH_METERS / 2.0);
+    public static final MecanumDriveKinematics KINEMATICS =
+            new MecanumDriveKinematics(
+                    FRONT_LEFT_OFFSET, FRONT_RIGHT_OFFSET, REAR_LEFT_OFFSET, REAR_RIGHT_OFFSET);
 
-        // meters / second
-        public static final double kMaxLinearVelocity = Units.feetToMeters(13.88);
-        public static final double kRunningLinearVelocity = kMaxLinearVelocity / 2.0;
+    // Characteristics
+    public static final double WHEEL_RADIUS_METERS = Units.inchesToMeters(6.0) / 2.0;
+    public static final double GEAR_RATIO = 10.71; // input
 
-        // radians / second
-        public static final double kMaxRotationalVelocity = 4 * Math.PI * 2.0;
+    // get from AM website
+    public static final float STALL_TORQUE_NEWTON_METERS = 55.697f;
+    public static final float FREE_SPEED_RPM = 529.97f; // RPM
 
-        // reach max velocity in seconds. (a = v2-v1/t)
-        // radians / seconds^2
-        public static final double kMaxRotationalAcceleration = kMaxRotationalVelocity / 1;
+    // meters / second
+    public static final double MAX_LINEAR_VELOCITY_MPS = Units.feetToMeters(13.88);
 
-        public static final ProfiledPIDController kThetaPIDController =
+    // radians / second
+    public static final double MAX_ANGULAR_VELOCITY =
+            MAX_LINEAR_VELOCITY_MPS / (TRACK_WIDTH_METERS / 2.0);
+
+    // reach max velocity in seconds. (a = v2-v1/t)
+    // radians / seconds^2
+    public static final double MAX_ANGULAR_ACCELERATION = MAX_ANGULAR_VELOCITY / 2;
+
+    public static final ProfiledPIDController THETA_PID_CONTROLLER;
+    private static final double THETA_P_GAIN = 5.0;
+    private static final double THETA_I_GAIN = 0.0;
+    private static final double THETA_D_GAIN = 0.0;
+    private static final Constraints THETA_CONSTRAINTS =
+            new TrapezoidProfile.Constraints(MAX_ANGULAR_VELOCITY, MAX_ANGULAR_ACCELERATION);
+    private static final double THETA_TOLERANCE = Units.degreesToRadians(5);
+    private static final double THETA_MIN_INPUT = 0.0;
+    private static final double THETA_MAX_INPUT = 2.0 * Math.PI;
+
+    static {
+        THETA_PID_CONTROLLER =
                 new ProfiledPIDController(
-                        5,
-                        0,
-                        0,
-                        new TrapezoidProfile.Constraints(
-                                kMaxRotationalVelocity, kMaxRotationalAcceleration));
-        // radians within goal to stop theta pid.
-        private static final double kThetaPIDCutoff = Units.degreesToRadians(5);
-
-        public static final double kWheelPGain = 0.1;
-        public static final double kWheelIGain = 0.0;
-        public static final double kWheelDGain = 0.0;
-
-        static {
-            kThetaPIDController.setTolerance(kThetaPIDCutoff);
-            kThetaPIDController.enableContinuousInput(0.0, 2.0 * Math.PI);
-        }
+                        THETA_P_GAIN, THETA_I_GAIN, THETA_D_GAIN, THETA_CONSTRAINTS);
+        THETA_PID_CONTROLLER.setTolerance(THETA_TOLERANCE);
+        THETA_PID_CONTROLLER.enableContinuousInput(THETA_MIN_INPUT, THETA_MAX_INPUT);
     }
 
-    public static final class MotorValues {
-        public static final MotorType kMotorType = MotorType.kBrushless;
-        public static final int kStallCurrentLimit = 44; // Amps
-        public static final int kFreeSpeedCurrentLimit = 2; // Amps
-        public static final double kPositionConversionFactor =
-                (1.0 / Characteristics.kGearRatio)
-                        * (2.0 * Math.PI * Characteristics.kWheelRadiusMeters);
-        public static final double kVelocityConversionFactor = kPositionConversionFactor / 60.0;
-    }
+    public static final double WHEEL_P_GAIN = 0.1;
+    public static final double WHEEL_I_GAIN = 0.0;
+    public static final double WHEEL_D_GAIN = 0.0;
 
-    public static final class Kinematics {
-        public static final Translation2d kFLOffset =
-                new Translation2d(Units.inchesToMeters(10.18), Units.inchesToMeters(-10.857));
-        public static final Translation2d kRLOffset =
-                new Translation2d(Units.inchesToMeters(-10.18), Units.inchesToMeters(-10.857));
-        public static final Translation2d kFROffset =
-                new Translation2d(Units.inchesToMeters(10.18), Units.inchesToMeters(10.857));
-        public static final Translation2d kRROffset =
-                new Translation2d(Units.inchesToMeters(-10.18), Units.inchesToMeters(10.857));
-    }
-
-    public static final class Odometry {
-        // Pose Estimation Values
-        // std devs, 0 is perfectly trusted, increase to trust less.
-        // state, or pose estimator std devs [x, y, theta]
-        public static final Matrix<N3, N1> kStateStdDevs = VecBuilder.fill(.1, .1, .1);
-        // sensor (gyro and encoder) std devs
-        public static final Matrix<N1, N1> kLocalMeasurementStdDevs = VecBuilder.fill(.05);
-        // vision std devs [x, y, theta]
-        public static final Matrix<N3, N1> kVisionMeasurementStdDevs =
-                VecBuilder.fill(.075, .075, .075);
-    }
+    // Motor values
+    public static final MotorType MOTOR_TYPE = MotorType.kBrushless;
+    public static final int STALL_CURRENT_LIMIT_AMPS = 44;
+    public static final int FREE_SPEED_CURRENT_LIMIT_AMPS = 2;
+    public static final double POSITION_CONVERSION_FACTOR =
+            (1.0 / GEAR_RATIO) * (2.0 * Math.PI * WHEEL_RADIUS_METERS);
+    public static final double VELOCITY_CONVERSION_FACTOR = POSITION_CONVERSION_FACTOR / 60.0;
 }
