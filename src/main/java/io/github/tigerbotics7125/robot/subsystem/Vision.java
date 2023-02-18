@@ -8,11 +8,6 @@ package io.github.tigerbotics7125.robot.subsystem;
 import static io.github.tigerbotics7125.robot.constants.VisionConstants.*;
 import static io.github.tigerbotics7125.robot.constants.VisionConstants.Sim.*;
 
-import java.io.IOException;
-import java.util.Objects;
-import java.util.Optional;
-import org.photonvision.*;
-import org.photonvision.PhotonPoseEstimator.PoseStrategy;
 import edu.wpi.first.apriltag.AprilTagFieldLayout;
 import edu.wpi.first.apriltag.AprilTagFields;
 import edu.wpi.first.math.geometry.Pose2d;
@@ -25,6 +20,11 @@ import edu.wpi.first.wpilibj.smartdashboard.FieldObject2d;
 import edu.wpi.first.wpilibj2.command.Subsystem;
 import io.github.tigerbotics7125.robot.Robot;
 import io.github.tigerbotics7125.tigerlib.vision.SnakeEyes;
+import java.io.IOException;
+import java.util.Objects;
+import java.util.Optional;
+import org.photonvision.*;
+import org.photonvision.PhotonPoseEstimator.PoseStrategy;
 
 public class Vision extends SnakeEyes implements Subsystem {
 

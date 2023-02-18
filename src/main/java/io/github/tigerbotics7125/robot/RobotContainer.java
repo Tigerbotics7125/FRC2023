@@ -9,7 +9,6 @@ import static io.github.tigerbotics7125.robot.constants.OIConstants.*;
 
 import edu.wpi.first.math.geometry.Pose2d;
 import edu.wpi.first.math.geometry.Pose3d;
-import edu.wpi.first.math.geometry.Rotation2d;
 import edu.wpi.first.wpilibj.RobotController;
 import edu.wpi.first.wpilibj.shuffleboard.Shuffleboard;
 import edu.wpi.first.wpilibj.shuffleboard.ShuffleboardTab;
@@ -29,9 +28,6 @@ import io.github.tigerbotics7125.tigerlib.input.trigger.Trigger;
 import io.github.tigerbotics7125.tigerlib.input.trigger.Trigger.ActivationCondition;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Optional;
-import org.photonvision.EstimatedRobotPose;
-import org.photonvision.targeting.PhotonTrackedTarget;
 
 public class RobotContainer {
 
