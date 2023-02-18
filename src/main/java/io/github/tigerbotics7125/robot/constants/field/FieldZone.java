@@ -68,7 +68,7 @@ public enum FieldZone {
             pose = LEFT_GRID.mPoseMeters;
         }
 
-        pose = new Translation2d(FieldConstants.fieldLength - pose.getX(), pose.getY());
+        pose = new Translation2d(FieldConstants6328.fieldLength - pose.getX(), pose.getY());
         return pose;
     }
 
