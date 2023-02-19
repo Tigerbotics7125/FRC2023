@@ -6,10 +6,9 @@
 package io.github.tigerbotics7125.robot.subsystem;
 
 import static io.github.tigerbotics7125.robot.constants.DrivetrainConstants.*;
-import static io.github.tigerbotics7125.robot.constants.RobotConstants.kNominalVoltage;
+import static io.github.tigerbotics7125.robot.constants.RobotConstants.NOMINAL_VOLTAGE;
 
-import com.ctre.phoenix.motorcontrol.can.WPI_TalonSRX;
-import com.ctre.phoenix.sensors.WPI_PigeonIMU;
+import com.kauailabs.navx.frc.AHRS;
 import com.revrobotics.CANSparkMax;
 import com.revrobotics.CANSparkMax.ControlType;
 import com.revrobotics.CANSparkMax.IdleMode;
@@ -17,6 +16,8 @@ import com.revrobotics.REVPhysicsSim;
 import com.revrobotics.RelativeEncoder;
 import com.revrobotics.SparkMaxPIDController;
 import com.revrobotics.SparkMaxPIDController.ArbFFUnits;
+import edu.wpi.first.hal.SimDouble;
+import edu.wpi.first.hal.simulation.SimDeviceDataJNI;
 import edu.wpi.first.math.controller.ProfiledPIDController;
 import edu.wpi.first.math.controller.SimpleMotorFeedforward;
 import edu.wpi.first.math.estimator.MecanumDrivePoseEstimator;
@@ -66,7 +67,7 @@ public class Drivetrain extends SubsystemBase {
     private final List<CANSparkMax> mMotors;
     private final List<RelativeEncoder> mEncoders;
     private final List<SparkMaxPIDController> mPIDControllers;
-    private final WPI_PigeonIMU mPigeon;
+    private final AHRS mNavx;
 
     // odometry
     private final MecanumDriveKinematics mKinematics;
@@ -99,7 +100,7 @@ public class Drivetrain extends SubsystemBase {
         mPIDControllers = new ArrayList<>();
         mMotors.forEach(this::configureMotor);
 
-        mPigeon = new WPI_PigeonIMU(new WPI_TalonSRX(PIGEON_ID));
+        mNavx = new AHRS();
 
         mKinematics = KINEMATICS;
         mPoseEstimator =
@@ -125,7 +126,7 @@ public class Drivetrain extends SubsystemBase {
         motor.setIdleMode(IdleMode.kCoast);
         motor.setSmartCurrentLimit(
                 STALL_CURRENT_LIMIT_AMPS, FREE_SPEED_CURRENT_LIMIT_AMPS, (int) FREE_SPEED_RPM);
-        motor.enableVoltageCompensation(kNominalVoltage);
+        motor.enableVoltageCompensation(NOMINAL_VOLTAGE);
 
         RelativeEncoder encoder = motor.getEncoder();
         mEncoders.add(encoder);
@@ -167,7 +168,12 @@ public class Drivetrain extends SubsystemBase {
                 Units.radiansToDegrees(
                                 mKinematics.toChassisSpeeds(getWheelSpeeds()).omegaRadiansPerSecond)
                         * .02; // 20ms loop time
-        mPigeon.getSimCollection().addHeading(deg);
+
+        // https://pdocs.kauailabs.com/navx-mxp/software/roborio-libraries/java
+        // I guess its better than no sim support...
+        int dev = SimDeviceDataJNI.getSimDeviceHandle("navX-Sensor[0]");
+        SimDouble angle = new SimDouble(SimDeviceDataJNI.getSimValueHandle(dev, "Yaw"));
+        angle.set(mNavx.getFusedHeading() + deg);
 
         /**
          * The following wheel position shenenigan fixes the super slow movement in sim. I still
@@ -355,7 +361,7 @@ public class Drivetrain extends SubsystemBase {
 
     /** Reset heading to 0. */
     public void resetGyro() {
-        mPigeon.reset();
+        mNavx.reset();
     }
 
     //
@@ -374,7 +380,7 @@ public class Drivetrain extends SubsystemBase {
 
     /** @return The robot's heading angle. */
     public Rotation2d getHeading() {
-        return mPigeon.getRotation2d();
+        return mNavx.getRotation2d();
     }
 
     public ChassisSpeeds getChassisSpeeds() {
@@ -419,6 +425,6 @@ public class Drivetrain extends SubsystemBase {
     }
 
     public double getGyroRate() {
-        return -mPigeon.getRate();
+        return -mNavx.getRate();
     }
 }
