@@ -18,12 +18,12 @@ import io.github.tigerbotics7125.robot.constants.field.GridLocation;
  */
 public class AutoPilotConstants {
 
-    public static final double kMaxVelocity = 5;
-    public static final double kMaxAcceleration = 4;
+    public static final double MAX_VELOCITY_MPS = 5;
+    public static final double MAX_ACCELERATION_MPSPS = 4;
 
-    public static final PIDController kXController = new PIDController(1, 0, 0);
-    public static final PIDController kYController = new PIDController(1, 0, 0);
-    public static final PIDController kZController = new PIDController(1, 0, 0);
+    public static final PIDController X_PID = new PIDController(1, 0, 0);
+    public static final PIDController Y_PID = new PIDController(1, 0, 0);
+    public static final PIDController THETA_PID = new PIDController(1, 0, 0);
 
     public static Pose2d getAutoPilotPose(FieldZone zone, GridLocation.Column gridPosition) {
 

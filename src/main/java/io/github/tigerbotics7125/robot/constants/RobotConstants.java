@@ -5,10 +5,14 @@
  */
 package io.github.tigerbotics7125.robot.constants;
 
+import edu.wpi.first.wpilibj.PneumaticsModuleType;
+
 public class RobotConstants {
 
-    public static final double kNominalVoltage = 12.0;
+    public static final double NOMINAL_VOLTAGE = 12.0;
 
-    public static final double kRobotWidthMeters = 0.820674;
-    public static final double kRobotLengthMeters = 0.660400;
+    public static final double ROBOT_WIDTH_METERS = 0.660400;
+    public static final double ROBOT_LENGTH_METERS = 0.820674;
+
+    public static final PneumaticsModuleType PNEUMATICS_MODULE_TYPE = PneumaticsModuleType.REVPH;
 }

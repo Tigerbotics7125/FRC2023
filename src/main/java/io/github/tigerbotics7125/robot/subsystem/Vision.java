@@ -6,7 +6,6 @@
 package io.github.tigerbotics7125.robot.subsystem;
 
 import static io.github.tigerbotics7125.robot.constants.VisionConstants.*;
-import static io.github.tigerbotics7125.robot.constants.VisionConstants.Sim.*;
 
 import edu.wpi.first.apriltag.AprilTagFieldLayout;
 import edu.wpi.first.apriltag.AprilTagFields;
@@ -41,7 +40,7 @@ public class Vision extends SnakeEyes implements Subsystem {
     private SimVisionSystem mSimVision;
 
     public Vision() {
-        super(kCameraName, kDefaultCamToRobot.inverse());
+        super(CAMERA_NAME, CAMERA_TO_ROBOT_TRANSFORM.inverse());
         // Register command to use periodic calls.
         register();
 
@@ -87,14 +86,14 @@ public class Vision extends SnakeEyes implements Subsystem {
         if (Robot.isSimulation()) {
             mSimVision =
                     new SimVisionSystem(
-                            kCameraName,
-                            kCamDiagFOVDegrees,
-                            kDefaultCamToRobot,
-                            kMaxLEDRangeMeters,
-                            kCamResWidth,
-                            kCamResHeight,
-                            kMinTargetArea);
-            mSimCam = new SimPhotonCamera(kCameraName);
+                            CAMERA_NAME,
+                            DIAG_FOV_DEGREES,
+                            CAMERA_TO_ROBOT_TRANSFORM,
+                            MAX_DETECTION_DISTANCE,
+                            WIDTH_PIXELS,
+                            HEIGHT_PIXELS,
+                            MIN_TARGET_AREA);
+            mSimCam = new SimPhotonCamera(CAMERA_NAME);
 
             if (mFieldLayout != null) {
                 // Add tags to simulation.

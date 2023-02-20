@@ -11,7 +11,6 @@ import static io.github.tigerbotics7125.robot.constants.RobotConstants.PNEUMATIC
 import com.revrobotics.CANSparkMax;
 import com.revrobotics.CANSparkMaxLowLevel.MotorType;
 import com.revrobotics.REVPhysicsSim;
-
 import edu.wpi.first.wpilibj.AnalogInput;
 import edu.wpi.first.wpilibj.DoubleSolenoid;
 import edu.wpi.first.wpilibj.DoubleSolenoid.Value;
@@ -61,7 +60,8 @@ public class Intake extends SubsystemBase {
 
         mSBTab = Shuffleboard.getTab("Intake");
         mSBTab.addBoolean("Occupancy", joinedOccupancy::get);
-        mSBTab.addDouble("sensorVolts", mOccupancySensor1::getVoltage);
+        mSBTab.addDouble("Sensor 1 Volts", mOccupancySensor1::getVoltage);
+        mSBTab.addDouble("Sensor 2 Volts", mOccupancySensor2::getVoltage);
         mSBTab.addBoolean("Claw", () -> mSolenoid.get().equals(Value.kForward));
     }
 
@@ -82,7 +82,8 @@ public class Intake extends SubsystemBase {
         motor.burnFlash();
 
         if (Robot.isSimulation())
-            REVPhysicsSim.getInstance().addSparkMax(motor, STALL_TORQUE_NEWTON_METERS, FREE_SPEED_RPM);
+            REVPhysicsSim.getInstance()
+                    .addSparkMax(motor, STALL_TORQUE_NEWTON_METERS, FREE_SPEED_RPM);
     }
 
     /** Disables all motor and pneumatic output. */

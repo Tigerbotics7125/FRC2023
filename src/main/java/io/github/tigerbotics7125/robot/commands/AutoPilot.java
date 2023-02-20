@@ -68,11 +68,11 @@ public class AutoPilot implements Command {
         mPathGen = mDbgField.getObject("pathGen");
 
         mDrivetrain = drivetrain;
-        mPathConstraints = new PathConstraints(kMaxVelocity, kMaxAcceleration);
+        mPathConstraints = new PathConstraints(MAX_VELOCITY_MPS, MAX_ACCELERATION_MPSPS);
 
         mTimer = new Timer();
         mTrajGen = mTrajFollowing = new PathPlannerTrajectory();
-        mController = new PPHolonomicDriveController(kXController, kYController, kZController);
+        mController = new PPHolonomicDriveController(X_PID, Y_PID, THETA_PID);
     }
 
     @Override
@@ -139,7 +139,7 @@ public class AutoPilot implements Command {
         Pose2d initialPose = mDrivetrain.getPose();
         Transform2d robotSpacing =
                 new Transform2d(
-                        new Translation2d(-RobotConstants.kRobotWidthMeters / 2.0, 0),
+                        new Translation2d(-RobotConstants.ROBOT_WIDTH_METERS / 2.0, 0),
                         new Rotation2d());
         Pose2d finalPose = getDesiredPose().transformBy(robotSpacing);
 

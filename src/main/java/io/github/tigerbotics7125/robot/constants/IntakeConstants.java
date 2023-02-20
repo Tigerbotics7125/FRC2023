@@ -7,7 +7,6 @@ package io.github.tigerbotics7125.robot.constants;
 
 import com.revrobotics.CANSparkMax.IdleMode;
 import com.revrobotics.CANSparkMaxLowLevel.MotorType;
-
 import edu.wpi.first.wpilibj.DoubleSolenoid;
 import edu.wpi.first.wpilibj.DoubleSolenoid.Value;
 
@@ -38,5 +37,4 @@ public class IntakeConstants {
     public static final int STALL_CURRENT_LIMIT_AMPS = 8;
     public static final int FREE_SPEED_CURRENT_LIMIT_AMPS = 2;
     public static final double OPEN_LOOP_RAMP_RATE = 0.05;
-
 }

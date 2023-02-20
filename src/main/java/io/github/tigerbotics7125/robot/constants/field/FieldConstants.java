@@ -5,24 +5,4 @@
  */
 package io.github.tigerbotics7125.robot.constants.field;
 
-import edu.wpi.first.apriltag.AprilTagFieldLayout;
-import edu.wpi.first.apriltag.AprilTagFields;
-import edu.wpi.first.wpilibj.DriverStation;
-import java.io.IOException;
-
-public class FieldConstants {
-    // setup in static block
-    public static final AprilTagFieldLayout mTagLayout;
-
-    static {
-        AprilTagFieldLayout tagLayout;
-        try {
-            tagLayout = AprilTagFields.k2023ChargedUp.loadAprilTagLayoutField();
-        } catch (IOException e) {
-            DriverStation.reportError(
-                    "Failed to instatiate AprilTagFieldLayout.", e.getStackTrace());
-            tagLayout = null;
-        }
-        mTagLayout = tagLayout;
-    }
-}
+public class FieldConstants {}

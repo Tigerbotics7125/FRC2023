@@ -5,36 +5,25 @@
  */
 package io.github.tigerbotics7125.robot.constants;
 
-import edu.wpi.first.math.geometry.Pose3d;
 import edu.wpi.first.math.geometry.Rotation3d;
 import edu.wpi.first.math.geometry.Transform3d;
+import edu.wpi.first.math.geometry.Translation3d;
 import edu.wpi.first.math.util.Units;
-import org.photonvision.PhotonTargetSortMode;
 
 public final class VisionConstants {
 
-    public static final class Sim {
-        public static final double kCamDiagFOVDegrees = 67.8011799307;
+    public static final String CAMERA_NAME = "OV5647";
 
-        // also just max target detection distance.
-        public static final double kMaxLEDRangeMeters = Units.feetToMeters(30);
-        public static final int kCamResWidth = 640;
-        public static final int kCamResHeight = 480;
-        public static final int kMinTargetArea = 10; // pixels^2
-    }
-
-    public static final String kCameraName = "PiCam";
-
-    public static final PhotonTargetSortMode kSortingMode = PhotonTargetSortMode.Largest;
-    public static final double kAmbiguityThreshold = 0.2;
-
-    public static final Transform3d kDefaultCamToRobot =
+    public static final Transform3d CAMERA_TO_ROBOT_TRANSFORM =
             new Transform3d(
-                            /* Robot Pose */ new Pose3d(), /* Cam relative to robot */
-                            new Pose3d(
-                                    0,
-                                    0,
-                                    Units.inchesToMeters(24),
-                                    new Rotation3d(0, Units.degreesToRadians(-5), 0)))
-                    .inverse();
+                    new Translation3d(0, 0, -Units.inchesToMeters(24)),
+                    new Rotation3d(0, Units.degreesToRadians(-5), 0));
+
+    // Sim variables
+    public static final double DIAG_FOV_DEGREES = 67.8011799307;
+
+    public static final double MAX_DETECTION_DISTANCE = Units.feetToMeters(20);
+    public static final int WIDTH_PIXELS = 640;
+    public static final int HEIGHT_PIXELS = 480;
+    public static final int MIN_TARGET_AREA = 10; // pixels^2
 }
