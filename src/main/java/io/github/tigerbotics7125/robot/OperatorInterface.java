@@ -47,8 +47,9 @@ public class OperatorInterface {
     /** Initialize dashboard values. */
     public static void init() {
         initOperatorSelector();
-        OIConstants.OI_TAB.addString("selectedNode", () ->
-                "x:" + mSelectedNode.getFirst() + " y:" + mSelectedNode.getSecond());
+        OIConstants.OI_TAB.addString(
+                "selectedNode",
+                () -> "x:" + mSelectedNode.getFirst() + " y:" + mSelectedNode.getSecond());
     }
 
     /** Call periodically to update dashboard values. */
