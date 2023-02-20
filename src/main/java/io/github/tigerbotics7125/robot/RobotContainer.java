@@ -6,15 +6,17 @@
 package io.github.tigerbotics7125.robot;
 
 import static io.github.tigerbotics7125.robot.constants.OIConstants.*;
+import static io.github.tigerbotics7125.robot.constants.RobotConstants.*;
 
 import edu.wpi.first.math.geometry.Pose2d;
 import edu.wpi.first.math.geometry.Pose3d;
+import edu.wpi.first.wpilibj.Compressor;
 import edu.wpi.first.wpilibj.RobotController;
 import edu.wpi.first.wpilibj.shuffleboard.Shuffleboard;
 import edu.wpi.first.wpilibj.shuffleboard.ShuffleboardTab;
 import edu.wpi.first.wpilibj.smartdashboard.Field2d;
 import edu.wpi.first.wpilibj.smartdashboard.SendableChooser;
-import edu.wpi.first.wpilibj2.command.*;
+import edu.wpi.first.wpilibj2.command.SubsystemBase;
 import io.github.tigerbotics7125.robot.commands.AutoPilot;
 import io.github.tigerbotics7125.robot.constants.field.FieldArea;
 import io.github.tigerbotics7125.robot.subsystem.Drivetrain;
@@ -31,14 +33,15 @@ import java.util.List;
 
 public class RobotContainer {
 
-    XboxController mDriver = new XboxController(kDriverPort);
-    XboxController mOperator = new XboxController(kOperatorPort);
+    XboxController mDriver = new XboxController(DRIVER_CONTROLLER_PORT);
+    XboxController mOperator = new XboxController(OPERATOR_CONTROLLER_PORT);
     Trigger mRioUserButton = new Trigger(RobotController::getUserButton);
 
     Vision mVision = new Vision();
     Drivetrain mDrivetrain = new Drivetrain();
     Intake mIntake = new Intake();
     // SuperStructure mSuperStruc = new SuperStructure();
+    Compressor mCompressor = new Compressor(PNEUMATICS_MODULE_TYPE);
 
     boolean sysIdActive = false;
     SysIdGeneralMechanismLogger sysIdMechLogger;
@@ -51,6 +54,7 @@ public class RobotContainer {
     Field2d mField = new Field2d();
 
     public RobotContainer() {
+        mCompressor.enableDigital();
         configTriggers();
         configDashboard();
         configDefaultCommands();
@@ -75,6 +79,13 @@ public class RobotContainer {
         mDriver.start().activate(ActivationCondition.WHILE_HIGH).trigger(mAutoPilot);
 
         // Operator
+        mOperator.rb().trigger(mIntake::grabObject);
+        mOperator.lb().trigger(mIntake::releaseObject);
+
+        mOperator.pov.left().trigger(OperatorInterface::selectLeft);
+        mOperator.pov.up().trigger(OperatorInterface::selectUp);
+        mOperator.pov.right().trigger(OperatorInterface::selectRight);
+        mOperator.pov.down().trigger(OperatorInterface::selectDown);
 
         // Subsystems
 
