@@ -13,6 +13,7 @@ import edu.wpi.first.math.util.Units;
 public final class VisionConstants {
 
     public static final String CAMERA_NAME = "OV5647";
+    public static final String DRIVER_CAM_NAME = "HD_Pro_Webcam_C920";
 
     public static final Transform3d CAMERA_TO_ROBOT_TRANSFORM =
             new Transform3d(

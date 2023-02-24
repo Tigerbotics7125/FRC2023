@@ -5,35 +5,44 @@
  */
 package io.github.tigerbotics7125.robot;
 
+import static io.github.tigerbotics7125.robot.constants.OIConstants.OI_TAB;
+
+import edu.wpi.first.cameraserver.CameraServer;
+import edu.wpi.first.cscore.UsbCamera;
+import edu.wpi.first.cscore.VideoMode.PixelFormat;
+import edu.wpi.first.cscore.VideoSource.ConnectionStrategy;
+import edu.wpi.first.wpilibj.PowerDistribution;
 import edu.wpi.first.wpilibj.RobotState;
 import edu.wpi.first.wpilibj.Timer;
-import edu.wpi.first.wpilibj.shuffleboard.BuiltInLayouts;
-import edu.wpi.first.wpilibj.shuffleboard.BuiltInWidgets;
-import edu.wpi.first.wpilibj.shuffleboard.ShuffleboardLayout;
-import edu.wpi.first.wpilibj.shuffleboard.SuppliedValueWidget;
-import io.github.tigerbotics7125.robot.constants.OIConstants;
+import edu.wpi.first.wpilibj.PowerDistribution.ModuleType;
+import edu.wpi.first.wpilibj.shuffleboard.*;
+import io.github.tigerbotics7125.robot.constants.VisionConstants;
 import io.github.tigerbotics7125.tigerlib.math.Tuple;
 import java.util.Map;
+
+import org.photonvision.PhotonCamera;
 
 public class OperatorInterface {
 
     private static String mMatchTime = "N/A";
     private static double mSegmentStartTime = 0.0;
+
     private static boolean[][] mOperatorGrid = new boolean[9][3];
     private static Tuple<Integer, Integer> mSelectedNode = Tuple.of(4, 1);
 
+    // private static UsbCamera mDriverCam = CameraServer.startAutomaticCapture();
+    private static PhotonCamera mDriverCam = new PhotonCamera(VisionConstants.DRIVER_CAM_NAME);
+
     // Displayes the time remianing in the match
     private static final SuppliedValueWidget<String> mMatchTimeWidget =
-            OIConstants.OI_TAB
-                    .addString("Match Time", () -> mMatchTime)
+            OI_TAB.addString("Match Time", () -> mMatchTime)
                     .withWidget(BuiltInWidgets.kTextView)
                     .withPosition(0, 0)
                     .withSize(2, 1);
     // Shows the desired game piece drop off location
     private static ShuffleboardLayout mOperatorSelector =
-            OIConstants.OI_TAB
-                    .getLayout("Operator Control", BuiltInLayouts.kGrid)
-                    .withPosition(2, 0)
+            OI_TAB.getLayout("Operator Control", BuiltInLayouts.kGrid)
+                    .withPosition(4, 0)
                     .withSize(5, 2)
                     .withProperties(
                             Map.of(
@@ -47,9 +56,14 @@ public class OperatorInterface {
     /** Initialize dashboard values. */
     public static void init() {
         initOperatorSelector();
-        OIConstants.OI_TAB.addString(
+        OI_TAB.addString(
                 "selectedNode",
                 () -> "x:" + mSelectedNode.getFirst() + " y:" + mSelectedNode.getSecond());
+
+        mDriverCam.setDriverMode(true);
+
+        // OI_TAB.add("Driver cam", SendableCameraWrapper.wrap(mDriverCam)).withPosition(0, 1).withSize(4, 3).withWidget(BuiltInWidgets.kCameraStream).withProperties(Map.of("Show crosshair", false, "Show controls", false));
+        OI_TAB.add(new PowerDistribution(1, ModuleType.kRev));
     }
 
     /** Call periodically to update dashboard values. */

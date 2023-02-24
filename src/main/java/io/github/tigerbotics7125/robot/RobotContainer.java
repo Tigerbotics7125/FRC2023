@@ -79,8 +79,8 @@ public class RobotContainer {
         mDriver.start().activate(ActivationCondition.WHILE_HIGH).trigger(mAutoPilot);
 
         // Operator
-        mOperator.rb().trigger(mIntake::grabObject);
-        mOperator.lb().trigger(mIntake::releaseObject);
+        mOperator.rb().trigger(mIntake.grabObject());
+        mOperator.lb().trigger(mIntake.releaseObject());
 
         mOperator.pov.left().trigger(OperatorInterface::selectLeft);
         mOperator.pov.up().trigger(OperatorInterface::selectUp);
@@ -92,7 +92,7 @@ public class RobotContainer {
     }
 
     public void configDashboard() {
-        Shuffleboard.getTab("test").add(mField);
+        Shuffleboard.getTab("odometry").add(mField);
 
         ShuffleboardTab autoPilotTab = Shuffleboard.getTab("AutoPilot");
 
@@ -108,7 +108,7 @@ public class RobotContainer {
                         mDriver.leftX()::get,
                         mDriver.rightY()::get,
                         mDriver.rightX()::get,
-                        false));
+                        true));
     }
 
     // sysid command... ew

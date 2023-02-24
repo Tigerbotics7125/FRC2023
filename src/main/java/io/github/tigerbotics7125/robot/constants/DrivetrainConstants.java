@@ -88,7 +88,7 @@ public final class DrivetrainConstants {
     // Motor values
     public static final MotorType MOTOR_TYPE = MotorType.kBrushless;
     public static final int STALL_CURRENT_LIMIT_AMPS = 44;
-    public static final int FREE_SPEED_CURRENT_LIMIT_AMPS = 2;
+    public static final int FREE_SPEED_CURRENT_LIMIT_AMPS = 5;
     public static final double POSITION_CONVERSION_FACTOR =
             (1.0 / GEAR_RATIO) * (2.0 * Math.PI * WHEEL_RADIUS_METERS);
     public static final double VELOCITY_CONVERSION_FACTOR = POSITION_CONVERSION_FACTOR / 60.0;

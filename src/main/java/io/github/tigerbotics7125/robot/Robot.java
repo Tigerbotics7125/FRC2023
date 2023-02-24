@@ -5,6 +5,7 @@
  */
 package io.github.tigerbotics7125.robot;
 
+import com.revrobotics.CANSparkMax;
 import com.revrobotics.REVPhysicsSim;
 import edu.wpi.first.wpilibj.DriverStation;
 import edu.wpi.first.wpilibj.shuffleboard.*;
@@ -21,6 +22,7 @@ public class Robot extends CommandRobot {
     @Override
     public void robotInit() {
         OperatorInterface.init();
+        CANSparkMax.enableExternalUSBControl(true);
     }
 
     @Override

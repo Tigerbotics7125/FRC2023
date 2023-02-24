@@ -125,7 +125,7 @@ public class Drivetrain extends SubsystemBase {
 
         motor.setIdleMode(IdleMode.kCoast);
         motor.setSmartCurrentLimit(
-                STALL_CURRENT_LIMIT_AMPS, FREE_SPEED_CURRENT_LIMIT_AMPS, (int) FREE_SPEED_RPM);
+                STALL_CURRENT_LIMIT_AMPS, FREE_SPEED_CURRENT_LIMIT_AMPS, 0);
         motor.enableVoltageCompensation(NOMINAL_VOLTAGE);
 
         RelativeEncoder encoder = motor.getEncoder();
