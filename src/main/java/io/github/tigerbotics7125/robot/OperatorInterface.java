@@ -7,19 +7,14 @@ package io.github.tigerbotics7125.robot;
 
 import static io.github.tigerbotics7125.robot.constants.OIConstants.OI_TAB;
 
-import edu.wpi.first.cameraserver.CameraServer;
-import edu.wpi.first.cscore.UsbCamera;
-import edu.wpi.first.cscore.VideoMode.PixelFormat;
-import edu.wpi.first.cscore.VideoSource.ConnectionStrategy;
 import edu.wpi.first.wpilibj.PowerDistribution;
+import edu.wpi.first.wpilibj.PowerDistribution.ModuleType;
 import edu.wpi.first.wpilibj.RobotState;
 import edu.wpi.first.wpilibj.Timer;
-import edu.wpi.first.wpilibj.PowerDistribution.ModuleType;
 import edu.wpi.first.wpilibj.shuffleboard.*;
 import io.github.tigerbotics7125.robot.constants.VisionConstants;
 import io.github.tigerbotics7125.tigerlib.math.Tuple;
 import java.util.Map;
-
 import org.photonvision.PhotonCamera;
 
 public class OperatorInterface {
@@ -62,7 +57,9 @@ public class OperatorInterface {
 
         mDriverCam.setDriverMode(true);
 
-        // OI_TAB.add("Driver cam", SendableCameraWrapper.wrap(mDriverCam)).withPosition(0, 1).withSize(4, 3).withWidget(BuiltInWidgets.kCameraStream).withProperties(Map.of("Show crosshair", false, "Show controls", false));
+        // OI_TAB.add("Driver cam", SendableCameraWrapper.wrap(mDriverCam)).withPosition(0,
+        // 1).withSize(4, 3).withWidget(BuiltInWidgets.kCameraStream).withProperties(Map.of("Show
+        // crosshair", false, "Show controls", false));
         OI_TAB.add(new PowerDistribution(1, ModuleType.kRev));
     }
 
