@@ -22,8 +22,6 @@ import edu.wpi.first.math.kinematics.ChassisSpeeds;
 import edu.wpi.first.wpilibj.Timer;
 import edu.wpi.first.wpilibj.smartdashboard.Field2d;
 import edu.wpi.first.wpilibj.smartdashboard.FieldObject2d;
-import edu.wpi.first.wpilibj.smartdashboard.SendableChooser;
-import edu.wpi.first.wpilibj.smartdashboard.SmartDashboard;
 import edu.wpi.first.wpilibj2.command.Command;
 import edu.wpi.first.wpilibj2.command.Subsystem;
 import io.github.tigerbotics7125.robot.OperatorInterface;
@@ -102,7 +100,8 @@ public class AutoPilot implements Command {
             Translation2d idealPose = ideal.getTranslation();
             Rotation2d driveRotation = drive.getRotation();
             Rotation2d idealRotation = ideal.getRotation();
-            // If drive is > 3cm away from pose, or > 2 deg out of allignment, iterate and do it again.
+            // If drive is > 3cm away from pose, or > 2 deg out of allignment, iterate and do it
+            // again.
             double poseDifferenceMeters = idealPose.getDistance(drivePose);
             double rotationDifferenceDegrees =
                     idealRotation.rotateBy(driveRotation.unaryMinus()).getDegrees();
@@ -168,7 +167,8 @@ public class AutoPilot implements Command {
         PathPoint finalPoint =
                 new PathPoint(finalPose.getTranslation(), heading, finalPose.getRotation());
 
-        PathPlannerTrajectory traj = PathPlanner.generatePath(mPathConstraints, initialPoint, finalPoint);
+        PathPlannerTrajectory traj =
+                PathPlanner.generatePath(mPathConstraints, initialPoint, finalPoint);
         // Put path on dbg field.
         mTrajectoryPath.setPoses(traj.getStates().stream().map(s -> s.poseMeters).toList());
 
@@ -177,32 +177,33 @@ public class AutoPilot implements Command {
 
     public Pose2d getDesiredPose() {
         // System.out.println(OperatorInterface.getSelectedNode()[0] % 3);
-        Column desiredColumn =  switch (OperatorInterface.getSelectedNode()[0] % 3) {
+        Column desiredColumn =
+                switch (OperatorInterface.getSelectedNode()[0] % 3) {
                     case 0 -> Column.LEFT_CONE;
                     case 1 -> Column.MID_CUBE;
                     case 2 -> Column.RIGHT_CONE;
                     default -> Column.MID_CUBE;
-        };
+                };
 
         // System.out.println(OperatorInterface.getZone());
-        FieldZone desiredZone = switch (OperatorInterface.getZone()) {
-            case NODES -> switch (OperatorInterface.getSelectedNode()[0]) {
-                case 0, 1, 2 -> FieldZone.LEFT_GRID;
-                case 3, 4, 5 -> FieldZone.CO_OP_GRID;
-                case 6, 7, 8 -> FieldZone.RIGHT_GRID;
-                default -> FieldZone.CO_OP_GRID;
-            };
-            case SUBSTATIONS -> switch(OperatorInterface.getSelectedSubstation()) {
-                case 0 -> FieldZone.DOUBLE_SUBSTATION_LEFT;
-                case 1 -> FieldZone.DOUBLE_SUBSTATION_RIGHT;
-                default -> FieldZone.DOUBLE_SUBSTATION_LEFT;
-            };
-            default -> FieldZone.CO_OP_GRID;
-        };
+        FieldZone desiredZone =
+                switch (OperatorInterface.getZone()) {
+                    case NODES -> switch (OperatorInterface.getSelectedNode()[0]) {
+                        case 0, 1, 2 -> FieldZone.LEFT_GRID;
+                        case 3, 4, 5 -> FieldZone.CO_OP_GRID;
+                        case 6, 7, 8 -> FieldZone.RIGHT_GRID;
+                        default -> FieldZone.CO_OP_GRID;
+                    };
+                    case SUBSTATIONS -> switch (OperatorInterface.getSelectedSubstation()) {
+                        case 0 -> FieldZone.DOUBLE_SUBSTATION_LEFT;
+                        case 1 -> FieldZone.DOUBLE_SUBSTATION_RIGHT;
+                        default -> FieldZone.DOUBLE_SUBSTATION_LEFT;
+                    };
+                    default -> FieldZone.CO_OP_GRID;
+                };
 
         // System.out.println(desiredZone.name() + " " + desiredColumn.name());
-        return AutoPilotConstants.getAutoPilotPose(
-                desiredZone, desiredColumn);
+        return AutoPilotConstants.getAutoPilotPose(desiredZone, desiredColumn);
     }
 
     public PathPlannerTrajectory getTrajectory() {

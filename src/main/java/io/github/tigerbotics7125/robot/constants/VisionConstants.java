@@ -17,8 +17,12 @@ public final class VisionConstants {
 
     public static final Transform3d CAMERA_TO_ROBOT_TRANSFORM =
             new Transform3d(
-                    new Translation3d(Units.inchesToMeters(17), Units.inchesToMeters(3), Units.inchesToMeters(9)),
-                    new Rotation3d(0, 0, 0)).inverse();
+                            new Translation3d(
+                                    Units.inchesToMeters(17),
+                                    Units.inchesToMeters(3),
+                                    Units.inchesToMeters(9)),
+                            new Rotation3d(0, 0, 0))
+                    .inverse();
 
     // Sim variables
     public static final double DIAG_FOV_DEGREES = 67.0;

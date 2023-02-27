@@ -6,20 +6,22 @@
 package io.github.tigerbotics7125.robot;
 
 import static io.github.tigerbotics7125.robot.constants.OIConstants.*;
-import java.util.Map;
-import java.util.stream.Stream;
-import org.photonvision.PhotonCamera;
+
 import edu.wpi.first.wpilibj.RobotState;
 import edu.wpi.first.wpilibj.Timer;
 import edu.wpi.first.wpilibj.shuffleboard.*;
 import edu.wpi.first.wpilibj2.command.Command;
 import edu.wpi.first.wpilibj2.command.Commands;
 import io.github.tigerbotics7125.robot.constants.VisionConstants;
+import java.util.Map;
+import java.util.stream.Stream;
+import org.photonvision.PhotonCamera;
 
 public class OperatorInterface {
 
     public enum OpZone {
-        NODES, SUBSTATIONS
+        NODES,
+        SUBSTATIONS
     }
 
     private static OpZone mCurrentZone = OpZone.NODES;
@@ -53,8 +55,10 @@ public class OperatorInterface {
         initSubstationSelector();
 
         // Add match time widget.
-        OI_TAB.addString("Match Time", () -> mMatchTime).withWidget(BuiltInWidgets.kTextView)
-                .withPosition(0, 0).withSize(2, 1);
+        OI_TAB.addString("Match Time", () -> mMatchTime)
+                .withWidget(BuiltInWidgets.kTextView)
+                .withPosition(0, 0)
+                .withSize(2, 1);
 
         // Dont let photon use computation on it
         mDriverCam.setDriverMode(true);
@@ -79,17 +83,17 @@ public class OperatorInterface {
     public static void initNodeSelector() {
         // Initialize layout.
         mNodeSelector =
-            OI_TAB.getLayout("Node Selector", BuiltInLayouts.kGrid)
-                    .withPosition(4, 0)
-                    .withSize(5, 2)
-                    .withProperties(
-                            Map.of(
-                                    "Number of columns",
-                                    9,
-                                    "Number of rows",
-                                    3,
-                                    "Label position",
-                                    "HIDDEN"));
+                OI_TAB.getLayout("Node Selector", BuiltInLayouts.kGrid)
+                        .withPosition(4, 0)
+                        .withSize(5, 2)
+                        .withProperties(
+                                Map.of(
+                                        "Number of columns",
+                                        9,
+                                        "Number of rows",
+                                        3,
+                                        "Label position",
+                                        "HIDDEN"));
 
         // Iterate over every node to instantiate it.
         for (int column = 0; column < mNodes.length; column++) {
@@ -117,9 +121,16 @@ public class OperatorInterface {
                 final int x = column;
                 final int y = row;
                 // Add boolean box to node selector layout.
-                mNodeSelector.addBoolean(nodeName, () -> mNodes[x][y]).withPosition(column, row)
-                        .withWidget(BuiltInWidgets.kBooleanBox).withProperties(Map
-                                .of("Color when true", trueColor, "Color when false", falseColor));
+                mNodeSelector
+                        .addBoolean(nodeName, () -> mNodes[x][y])
+                        .withPosition(column, row)
+                        .withWidget(BuiltInWidgets.kBooleanBox)
+                        .withProperties(
+                                Map.of(
+                                        "Color when true",
+                                        trueColor,
+                                        "Color when false",
+                                        falseColor));
             }
         }
     }
@@ -127,19 +138,40 @@ public class OperatorInterface {
     /** Initialize and fill the substation selector. */
     public static void initSubstationSelector() {
         // Initialize layout.
-        mSubstationSelector = OI_TAB.getLayout("Substation", BuiltInLayouts.kGrid)
-                .withPosition(7, 2).withSize(2, 1).withProperties(Map.of("Number of columns", 2,
-                        "Number of rows", 1, "Label position", "HIDDEN"));
+        mSubstationSelector =
+                OI_TAB.getLayout("Substation", BuiltInLayouts.kGrid)
+                        .withPosition(7, 2)
+                        .withSize(2, 1)
+                        .withProperties(
+                                Map.of(
+                                        "Number of columns",
+                                        2,
+                                        "Number of rows",
+                                        1,
+                                        "Label position",
+                                        "HIDDEN"));
 
         // Add both substations to the selector.
-        mSubstationSelector.addBoolean("Left Substation", () -> mSubstations[0]).withPosition(0, 0)
+        mSubstationSelector
+                .addBoolean("Left Substation", () -> mSubstations[0])
+                .withPosition(0, 0)
                 .withWidget(BuiltInWidgets.kBooleanBox)
-                .withProperties(Map.of("Color when true", SELECTED_SUBSTATION_COLOR,
-                        "Color when false", UNSELECTED_SUBSTATION_COLOR));
-        mSubstationSelector.addBoolean("Right Substation", () -> mSubstations[1]).withPosition(1, 0)
+                .withProperties(
+                        Map.of(
+                                "Color when true",
+                                SELECTED_SUBSTATION_COLOR,
+                                "Color when false",
+                                UNSELECTED_SUBSTATION_COLOR));
+        mSubstationSelector
+                .addBoolean("Right Substation", () -> mSubstations[1])
+                .withPosition(1, 0)
                 .withWidget(BuiltInWidgets.kBooleanBox)
-                .withProperties(Map.of("Color when true", SELECTED_SUBSTATION_COLOR,
-                        "Color when false", UNSELECTED_SUBSTATION_COLOR));
+                .withProperties(
+                        Map.of(
+                                "Color when true",
+                                SELECTED_SUBSTATION_COLOR,
+                                "Color when false",
+                                UNSELECTED_SUBSTATION_COLOR));
     }
 
     /** Update the match time variable */
@@ -217,9 +249,7 @@ public class OperatorInterface {
         switch (zone) {
             case NODES -> mNodes[mSelectedNode[0]][mSelectedNode[1]] = true;
 
-            case SUBSTATIONS ->
-                mSubstations[mSelectedSubstation] = true;
-
+            case SUBSTATIONS -> mSubstations[mSelectedSubstation] = true;
         }
 
         // unhighlight
@@ -232,15 +262,17 @@ public class OperatorInterface {
     }
 
     public static Command toggleZone() {
-        return Commands.runOnce(() -> {
-            if (mCurrentZone.equals(OpZone.NODES)) {
-                highlight(OpZone.SUBSTATIONS);
-                mCurrentZone = OpZone.SUBSTATIONS;
-            } else {
-                highlight(OpZone.NODES);
-                mCurrentZone = OpZone.NODES;
-            }
-        }).ignoringDisable(true);
+        return Commands.runOnce(
+                        () -> {
+                            if (mCurrentZone.equals(OpZone.NODES)) {
+                                highlight(OpZone.SUBSTATIONS);
+                                mCurrentZone = OpZone.SUBSTATIONS;
+                            } else {
+                                highlight(OpZone.NODES);
+                                mCurrentZone = OpZone.NODES;
+                            }
+                        })
+                .ignoringDisable(true);
     }
 
     public static OpZone getZone() {

@@ -46,8 +46,11 @@ public class AutoPilotConstants {
         }
 
         // subtract robot length so it doesnt try land in the pose, but at the pose
-        pose = pose.plus(new Translation2d(RobotConstants.ROBOT_LENGTH_METERS,
-                pose.getAngle().rotateBy(new Rotation2d(Math.PI))));
+        pose =
+                pose.plus(
+                        new Translation2d(
+                                RobotConstants.ROBOT_LENGTH_METERS,
+                                pose.getAngle().rotateBy(new Rotation2d(Math.PI))));
 
         return new Pose2d(pose, rotation);
     }
