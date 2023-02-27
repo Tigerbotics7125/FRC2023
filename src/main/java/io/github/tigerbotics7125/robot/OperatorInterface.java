@@ -5,38 +5,81 @@
  */
 package io.github.tigerbotics7125.robot;
 
-import static io.github.tigerbotics7125.robot.constants.OIConstants.OI_TAB;
-
-import edu.wpi.first.wpilibj.PowerDistribution;
-import edu.wpi.first.wpilibj.PowerDistribution.ModuleType;
+import static io.github.tigerbotics7125.robot.constants.OIConstants.*;
+import java.util.Map;
+import java.util.stream.Stream;
+import org.photonvision.PhotonCamera;
 import edu.wpi.first.wpilibj.RobotState;
 import edu.wpi.first.wpilibj.Timer;
 import edu.wpi.first.wpilibj.shuffleboard.*;
+import edu.wpi.first.wpilibj2.command.Command;
+import edu.wpi.first.wpilibj2.command.Commands;
 import io.github.tigerbotics7125.robot.constants.VisionConstants;
-import io.github.tigerbotics7125.tigerlib.math.Tuple;
-import java.util.Map;
-import org.photonvision.PhotonCamera;
 
 public class OperatorInterface {
 
+    public enum OpZone {
+        NODES, SUBSTATIONS
+    }
+
+    private static OpZone mCurrentZone = OpZone.NODES;
+
+    // Match time variables.
     private static String mMatchTime = "N/A";
     private static double mSegmentStartTime = 0.0;
 
-    private static boolean[][] mOperatorGrid = new boolean[9][3];
-    private static Tuple<Integer, Integer> mSelectedNode = Tuple.of(4, 1);
+    // Nodes are a 2d array, size 9x3, with a selected node being a 1d, size 2, {x, y} index pair.
+    private static boolean[][] mNodes = new boolean[9][3];
+    private static int[] mSelectedNode = {4, 1};
 
-    // private static UsbCamera mDriverCam = CameraServer.startAutomaticCapture();
+    // Substations are a 1d array, size 2, with a selected substation being the index.
+    private static boolean[] mSubstations = new boolean[2];
+    private static int mSelectedSubstation = 0;
+
+    // Photon driver cam object, instantiated to force into driver mode in case it isn't.
     private static PhotonCamera mDriverCam = new PhotonCamera(VisionConstants.DRIVER_CAM_NAME);
 
-    // Displayes the time remianing in the match
-    private static final SuppliedValueWidget<String> mMatchTimeWidget =
-            OI_TAB.addString("Match Time", () -> mMatchTime)
-                    .withWidget(BuiltInWidgets.kTextView)
-                    .withPosition(0, 0)
-                    .withSize(2, 1);
-    // Shows the desired game piece drop off location
-    private static ShuffleboardLayout mOperatorSelector =
-            OI_TAB.getLayout("Operator Control", BuiltInLayouts.kGrid)
+    // Shows the desired game piece drop off location.
+    private static ShuffleboardLayout mNodeSelector;
+    // Shows the desired game piece load location.
+    private static ShuffleboardLayout mSubstationSelector;
+
+    /** Initialize dashboard values. */
+    public static void init() {
+        highlight(mCurrentZone);
+
+        // init and add node & substation selector widgets.
+        initNodeSelector();
+        initSubstationSelector();
+
+        // Add match time widget.
+        OI_TAB.addString("Match Time", () -> mMatchTime).withWidget(BuiltInWidgets.kTextView)
+                .withPosition(0, 0).withSize(2, 1);
+
+        // Dont let photon use computation on it
+        mDriverCam.setDriverMode(true);
+        // Add camera widget.
+        OI_TAB.add(
+                        "Driver Cam",
+                        SendableCameraWrapper.wrap(
+                                "Driver Cam",
+                                "http://10.71.25.11:1184/stream.mjpg",
+                                "http://photonvision.local:1184/stream.mjpg"))
+                .withPosition(0, 1)
+                .withSize(4, 4)
+                .withProperties(Map.of("Show crosshair", false, "Show controls", false));
+    }
+
+    /** Call periodically to update dashboard values. */
+    public static void update() {
+        updateMatchTime();
+    }
+
+    /** Initialize and fill the node selector */
+    public static void initNodeSelector() {
+        // Initialize layout.
+        mNodeSelector =
+            OI_TAB.getLayout("Node Selector", BuiltInLayouts.kGrid)
                     .withPosition(4, 0)
                     .withSize(5, 2)
                     .withProperties(
@@ -48,24 +91,55 @@ public class OperatorInterface {
                                     "Label position",
                                     "HIDDEN"));
 
-    /** Initialize dashboard values. */
-    public static void init() {
-        initOperatorSelector();
-        OI_TAB.addString(
-                "selectedNode",
-                () -> "x:" + mSelectedNode.getFirst() + " y:" + mSelectedNode.getSecond());
+        // Iterate over every node to instantiate it.
+        for (int column = 0; column < mNodes.length; column++) {
+            for (int row = 0; row < mNodes[0].length; row++) {
+                String trueColor, falseColor;
+                trueColor = falseColor = new String();
 
-        mDriverCam.setDriverMode(true);
+                // if column is cube column
+                if (column % 3 == 1) {
+                    trueColor = SELECTED_CUBE_COLOR;
+                    falseColor = UNSELECTED_CUBE_COLOR;
+                } else {
+                    trueColor = SELECTED_CONE_COLOR;
+                    falseColor = UNSELECTED_CONE_COLOR;
+                }
 
-        // OI_TAB.add("Driver cam", SendableCameraWrapper.wrap(mDriverCam)).withPosition(0,
-        // 1).withSize(4, 3).withWidget(BuiltInWidgets.kCameraStream).withProperties(Map.of("Show
-        // crosshair", false, "Show controls", false));
-        OI_TAB.add(new PowerDistribution(1, ModuleType.kRev));
+                // Set bottom row as hybrid color
+                if (row % 3 == 2) {
+                    trueColor = SELECTED_HYBRID_COLOR;
+                    falseColor = UNSELECTED_HYBRID_COLOR;
+                }
+
+                String nodeName = "[" + column + "," + row + "]";
+                // must use final variables in lamda >:(.
+                final int x = column;
+                final int y = row;
+                // Add boolean box to node selector layout.
+                mNodeSelector.addBoolean(nodeName, () -> mNodes[x][y]).withPosition(column, row)
+                        .withWidget(BuiltInWidgets.kBooleanBox).withProperties(Map
+                                .of("Color when true", trueColor, "Color when false", falseColor));
+            }
+        }
     }
 
-    /** Call periodically to update dashboard values. */
-    public static void update() {
-        updateMatchTime();
+    /** Initialize and fill the substation selector. */
+    public static void initSubstationSelector() {
+        // Initialize layout.
+        mSubstationSelector = OI_TAB.getLayout("Substation", BuiltInLayouts.kGrid)
+                .withPosition(7, 2).withSize(2, 1).withProperties(Map.of("Number of columns", 2,
+                        "Number of rows", 1, "Label position", "HIDDEN"));
+
+        // Add both substations to the selector.
+        mSubstationSelector.addBoolean("Left Substation", () -> mSubstations[0]).withPosition(0, 0)
+                .withWidget(BuiltInWidgets.kBooleanBox)
+                .withProperties(Map.of("Color when true", SELECTED_SUBSTATION_COLOR,
+                        "Color when false", UNSELECTED_SUBSTATION_COLOR));
+        mSubstationSelector.addBoolean("Right Substation", () -> mSubstations[1]).withPosition(1, 0)
+                .withWidget(BuiltInWidgets.kBooleanBox)
+                .withProperties(Map.of("Color when true", SELECTED_SUBSTATION_COLOR,
+                        "Color when false", UNSELECTED_SUBSTATION_COLOR));
     }
 
     /** Update the match time variable */
@@ -103,121 +177,129 @@ public class OperatorInterface {
         mSegmentStartTime = Timer.getFPGATimestamp();
     }
 
-    /** Fills the operator selector layout with booleans to show the selection */
-    public static void initOperatorSelector() {
-        String unselectedCone = "#40361c";
-        String selectedCone = "#FFD871";
-        String unselectedCube = "#251b40";
-        String selectedCube = "#976eff";
-        String unselectedHybrid = "#403339";
-        String selectedHybrid = "#CBA3B8";
-
-        for (int column = 0; column < mOperatorGrid.length; column++) {
-            for (int row = 0; row < mOperatorGrid[0].length; row++) {
-                String gridName, columnName, rowName, trueColor, falseColor;
-                trueColor = falseColor = "";
-
-                gridName =
-                        switch (column / 3) {
-                            case 0 -> "L";
-                            case 1 -> "Co";
-                            case 2 -> "R";
-                            default -> "N/A";
-                        };
-                columnName =
-                        switch (column % 3) {
-                            case 0 -> {
-                                falseColor = unselectedCone;
-                                trueColor = selectedCone;
-                                yield "L-Cone";
-                            }
-                            case 1 -> {
-                                falseColor = unselectedCube;
-                                trueColor = selectedCube;
-                                yield "M-Cube";
-                            }
-                            case 2 -> {
-                                falseColor = unselectedCone;
-                                trueColor = selectedCone;
-                                yield "R-Cone";
-                            }
-                            default -> "N/A";
-                        };
-                rowName =
-                        switch (row % 3) {
-                            case 0 -> "L3";
-                            case 1 -> "L2";
-                            case 2 -> {
-                                falseColor = unselectedHybrid;
-                                trueColor = selectedHybrid;
-                                yield "L1";
-                            }
-                            default -> "N/A";
-                        };
-
-                String nodeName = gridName + " " + rowName + ": " + columnName;
-                final int x = column;
-                final int y = row;
-                mOperatorSelector
-                        .addBoolean(nodeName, () -> mOperatorGrid[x][y])
-                        .withPosition(column, row)
-                        .withWidget(BuiltInWidgets.kBooleanBox)
-                        .withProperties(
-                                Map.of(
-                                        "Color when true",
-                                        trueColor,
-                                        "Color when false",
-                                        falseColor));
-            }
-        }
-    }
-
     /**
      * @return The currently selected Node, first value is column, second value is row, origin is
      *     top left.
      */
-    public static Tuple<Integer, Integer> getSelectedNode() {
+    public static int[] getSelectedNode() {
         return mSelectedNode;
     }
 
-    public static void setSelectedNode(Tuple<Integer, Integer> node) {
-        int x = node.getFirst();
-        int y = node.getSecond();
+    public static int getSelectedSubstation() {
+        return mSelectedSubstation;
+    }
+
+    private static void setSelectedNode(int[] node) {
+        int x = node[0];
+        int y = node[1];
         if (x < 0 || x > 8 || y < 0 || y > 2) {
             // Out of bounds
             return;
         }
         // update the selected node on dashboard
-        mOperatorGrid[mSelectedNode.getFirst()][mSelectedNode.getSecond()] = false;
-        mOperatorGrid[x][y] = true;
+        mNodes[mSelectedNode[0]][mSelectedNode[1]] = false;
+        mNodes[x][y] = true;
         mSelectedNode = node;
+
+        highlight(OpZone.NODES);
     }
 
-    public static void selectLeft() {
-        var curr = getSelectedNode();
-        var leftX = curr.getFirst() - 1;
-        if (leftX < 0) return;
-        else setSelectedNode(Tuple.of(leftX, curr.getSecond()));
+    private static void setSelectedSubstation(int substation) {
+        mSubstations[mSelectedSubstation] = false;
+        mSubstations[substation] = true;
+        mSelectedSubstation = substation;
+
+        highlight(OpZone.SUBSTATIONS);
     }
 
-    public static void selectUp() {
-        var curr = getSelectedNode();
-        var upY = curr.getSecond() - 1;
-        if (upY < 0) return;
-        else setSelectedNode(Tuple.of(curr.getFirst(), upY));
+    private static void highlight(OpZone zone) {
+        // highlight
+        switch (zone) {
+            case NODES -> mNodes[mSelectedNode[0]][mSelectedNode[1]] = true;
+
+            case SUBSTATIONS ->
+                mSubstations[mSelectedSubstation] = true;
+
+        }
+
+        // unhighlight
+        for (OpZone w : Stream.of(OpZone.values()).filter(w -> !zone.equals(w)).toList()) {
+            switch (w) {
+                case NODES -> mNodes[mSelectedNode[0]][mSelectedNode[1]] = false;
+                case SUBSTATIONS -> mSubstations[mSelectedSubstation] = false;
+            }
+        }
     }
 
-    public static void selectRight() {
-        var curr = getSelectedNode();
-        var rightX = curr.getFirst() + 1;
-        if (rightX > 8) return;
-        else setSelectedNode(Tuple.of(rightX, curr.getSecond()));
+    public static Command toggleZone() {
+        return Commands.runOnce(() -> {
+            if (mCurrentZone.equals(OpZone.NODES)) {
+                highlight(OpZone.SUBSTATIONS);
+                mCurrentZone = OpZone.SUBSTATIONS;
+            } else {
+                highlight(OpZone.NODES);
+                mCurrentZone = OpZone.NODES;
+            }
+        }).ignoringDisable(true);
     }
 
-    public static void selectDown() {
-        var curr = getSelectedNode();
-        var downY = curr.getSecond() + 1;
-        if (downY > 2) return;
-        else setSelectedNode(Tuple.of(curr.getFirst(), downY));
+    public static OpZone getZone() {
+        return mCurrentZone;
+    }
+
+    public static Command selectLeft() {
+        return Commands.runOnce(
+                        () -> {
+                            int[] curr = getSelectedNode();
+                            int leftX = (curr[0] - 1);
+                            setSelectedNode(new int[] {leftX, curr[1]});
+                        })
+                .ignoringDisable(true);
+    }
+
+    public static Command selectUp() {
+        return Commands.runOnce(
+                        () -> {
+                            int[] curr = getSelectedNode();
+                            int upY = (curr[1] - 1);
+                            setSelectedNode(new int[] {curr[0], upY});
+                        })
+                .ignoringDisable(true);
+    }
+
+    public static Command selectRight() {
+        return Commands.runOnce(
+                        () -> {
+                            int[] curr = getSelectedNode();
+                            int rightX = (curr[0] + 1);
+                            setSelectedNode(new int[] {rightX, curr[1]});
+                        })
+                .ignoringDisable(true);
+    }
+
+    public static Command selectDown() {
+        return Commands.runOnce(
+                        () -> {
+                            int[] curr = getSelectedNode();
+                            int downY = (curr[1] + 1);
+                            setSelectedNode(new int[] {curr[0], downY});
+                        })
+                .ignoringDisable(true);
+    }
+
+    public static Command selectLeftSubstation() {
+        return Commands.runOnce(
+                        () -> {
+                            setSelectedSubstation(0);
+                        })
+                .ignoringDisable(true);
+    }
+
+    public static Command selectRightSubstation() {
+        return Commands.runOnce(
+                        () -> {
+                            setSelectedSubstation(1);
+                        })
+                .ignoringDisable(true);
     }
 }
