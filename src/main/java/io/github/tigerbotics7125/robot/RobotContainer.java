@@ -79,13 +79,15 @@ public class RobotContainer {
         mDriver.start().activate(ActivationCondition.WHILE_HIGH).trigger(mAutoPilot);
 
         // Operator
-        mOperator.rb().trigger(mIntake.grabObject());
-        mOperator.lb().trigger(mIntake.releaseObject());
+        mOperator.pov.left().trigger(OperatorInterface.selectLeft());
+        mOperator.pov.up().trigger(OperatorInterface.selectUp());
+        mOperator.pov.right().trigger(OperatorInterface.selectRight());
+        mOperator.pov.down().trigger(OperatorInterface.selectDown());
 
-        mOperator.pov.left().trigger(OperatorInterface::selectLeft);
-        mOperator.pov.up().trigger(OperatorInterface::selectUp);
-        mOperator.pov.right().trigger(OperatorInterface::selectRight);
-        mOperator.pov.down().trigger(OperatorInterface::selectDown);
+        mOperator.lb().trigger(OperatorInterface.selectLeftSubstation());
+        mOperator.rb().trigger(OperatorInterface.selectRightSubstation());
+
+        mOperator.start().trigger(OperatorInterface.toggleZone());
 
         // Subsystems
 
@@ -108,70 +110,8 @@ public class RobotContainer {
                         mDriver.leftX()::get,
                         mDriver.rightY()::get,
                         mDriver.rightX()::get,
-                        true));
+                        false));
     }
-
-    // sysid command... ew
-    /*
-    public Command getAutonomousCommand() {
-        if (sysIdActive) {
-            if (!sysIdMechChooser.getSelected().getName().equals(mDrivetrain.getName())) {
-                // Not drivetrain
-                sysIdMechLogger = new SysIdGeneralMechanismLogger();
-                Subsystem sysIdMechSubsystem = sysIdMechChooser.getSelected();
-                SysIdMechanism sysIdMech = (SysIdMechanism) sysIdMechSubsystem;
-                return Commands.runOnce(sysIdMechLogger::initLogging, sysIdMechSubsystem)
-                        .andThen(
-                                Commands.run(
-                                        () -> {
-                                            sysIdMechLogger.log(
-                                                    sysIdMechLogger.measureVoltage(
-                                                            List.of(sysIdMech.getMotor())),
-                                                    sysIdMech.getPosition(),
-                                                    sysIdMech.getVelocity());
-                                            sysIdMechLogger.setMotorControllers(
-                                                    sysIdMechLogger.getMotorVoltage(),
-                                                    List.of(sysIdMech.getMotor()));
-                                        },
-                                        sysIdMechSubsystem));
-            } else {
-                // drivetrain
-                sysIdDriveLogger = new SysIdDrivetrainLogger();
-                Subsystem sysIdDriveSubsystem = sysIdMechChooser.getSelected();
-                return Commands.runOnce(sysIdDriveLogger::initLogging, sysIdDriveSubsystem)
-                        .andThen(
-                                new NotifierCommand(
-                                        () -> {
-                                            sysIdDriveLogger.log(
-                                                    sysIdDriveLogger.measureVoltage(
-                                                            mDrivetrain.getLeftMotors()),
-                                                    sysIdDriveLogger.measureVoltage(
-                                                            mDrivetrain.getRightMotors()),
-                                                    mDrivetrain.getWheelPositions().frontLeftMeters,
-                                                    mDrivetrain.getWheelPositions()
-                                                            .frontRightMeters,
-                                                    mDrivetrain.getWheelSpeeds()
-                                                            .frontLeftMetersPerSecond,
-                                                    mDrivetrain.getWheelSpeeds()
-                                                            .frontRightMetersPerSecond,
-                                                    mDrivetrain.getHeading().getDegrees(),
-                                                    mDrivetrain.getGyroRate());
-                                            sysIdDriveLogger.setMotorControllers(
-                                                    sysIdDriveLogger.getLeftMotorVoltage(),
-                                                    mDrivetrain.getLeftMotors());
-                                            sysIdDriveLogger.setMotorControllers(
-                                                    sysIdDriveLogger.getRightMotorVoltage(),
-                                                    mDrivetrain.getRightMotors());
-                                        },
-                                        0.005,
-                                        mDrivetrain))
-                        .handleInterrupt(sysIdDriveLogger::sendData);
-            }
-        } else {
-            return Commands.print("No auto selected!");
-        }
-    }
-    */
 
     /** Periodic call, always runs. */
     public void periodic() {
@@ -186,14 +126,6 @@ public class RobotContainer {
         // DS always on trajectory
         mAutoPilot.getTrajectory().getStates().forEach((state) -> trajPoses.add(state.poseMeters));
         mAutoPilotField.getObject("GenPath").setPoses(trajPoses);
-        // Active path.
-        trajPoses.clear();
-
-        mAutoPilot
-                .getActiveTrajectory()
-                .getStates()
-                .forEach((state) -> trajPoses.add(state.poseMeters));
-        mAutoPilotField.getObject("ActivePath").setPoses(trajPoses);
 
         mAutoPilotField
                 .getObject("CHARGING_STATION")

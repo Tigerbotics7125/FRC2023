@@ -18,8 +18,8 @@ import io.github.tigerbotics7125.robot.constants.field.GridLocation;
  */
 public class AutoPilotConstants {
 
-    public static final double MAX_VELOCITY_MPS = 5;
-    public static final double MAX_ACCELERATION_MPSPS = 4;
+    public static final double MAX_VELOCITY_MPS = 1;
+    public static final double MAX_ACCELERATION_MPSPS = 1;
 
     public static final PIDController X_PID = new PIDController(1, 0, 0);
     public static final PIDController Y_PID = new PIDController(1, 0, 0);
@@ -44,6 +44,10 @@ public class AutoPilotConstants {
                 || zone == FieldZone.DOUBLE_SUBSTATION_RIGHT)) {
             pose = pose.plus(gridPosition.getPose2d());
         }
+
+        // subtract robot length so it doesnt try land in the pose, but at the pose
+        pose = pose.plus(new Translation2d(RobotConstants.ROBOT_LENGTH_METERS,
+                pose.getAngle().rotateBy(new Rotation2d(Math.PI))));
 
         return new Pose2d(pose, rotation);
     }

@@ -26,6 +26,8 @@ import edu.wpi.first.wpilibj.smartdashboard.SendableChooser;
 import edu.wpi.first.wpilibj.smartdashboard.SmartDashboard;
 import edu.wpi.first.wpilibj2.command.Command;
 import edu.wpi.first.wpilibj2.command.Subsystem;
+import io.github.tigerbotics7125.robot.OperatorInterface;
+import io.github.tigerbotics7125.robot.OperatorInterface.OpZone;
 import io.github.tigerbotics7125.robot.constants.AutoPilotConstants;
 import io.github.tigerbotics7125.robot.constants.RobotConstants;
 import io.github.tigerbotics7125.robot.constants.field.FieldArea;
@@ -35,43 +37,26 @@ import io.github.tigerbotics7125.robot.subsystem.Drivetrain;
 import java.util.Set;
 
 public class AutoPilot implements Command {
-    private SendableChooser<FieldZone> mZoneChooser;
-    private SendableChooser<Column> mGridChooser;
     private final Field2d mDbgField;
-    private final FieldObject2d mPathFollwing;
-    private final FieldObject2d mPathGen;
+    private final FieldObject2d mTrajectoryPath;
 
     private final Drivetrain mDrivetrain;
     private final PathConstraints mPathConstraints;
 
     private final Timer mTimer;
-    // The trajectory that gets followed
-    private PathPlannerTrajectory mTrajFollowing;
-    // The trajectory always being generated for DS view.
-    private PathPlannerTrajectory mTrajGen;
+
+    private PathPlannerTrajectory mTrajectory;
     private final PPHolonomicDriveController mController;
 
     public AutoPilot(Drivetrain drivetrain) {
-        mZoneChooser = new SendableChooser<>();
-        mGridChooser = new SendableChooser<>();
-        SmartDashboard.putData(mZoneChooser);
-        SmartDashboard.putData(mGridChooser);
-        mZoneChooser.setDefaultOption(FieldZone.LEFT_GRID.name(), FieldZone.LEFT_GRID);
-        for (var zone : FieldZone.values()) {
-            mZoneChooser.addOption(zone.name(), zone);
-        }
-        mGridChooser.setDefaultOption(Column.MID_CUBE.name(), Column.MID_CUBE);
-        mGridChooser.addOption(Column.LEFT_CONE.name(), Column.LEFT_CONE);
-        mGridChooser.addOption(Column.RIGHT_CONE.name(), Column.RIGHT_CONE);
         mDbgField = new Field2d();
-        mPathFollwing = mDbgField.getObject("pathFollowing");
-        mPathGen = mDbgField.getObject("pathGen");
+        mTrajectoryPath = mDbgField.getObject("trajectoryPath");
 
         mDrivetrain = drivetrain;
         mPathConstraints = new PathConstraints(MAX_VELOCITY_MPS, MAX_ACCELERATION_MPSPS);
 
         mTimer = new Timer();
-        mTrajGen = mTrajFollowing = new PathPlannerTrajectory();
+        mTrajectory = new PathPlannerTrajectory();
         mController = new PPHolonomicDriveController(X_PID, Y_PID, THETA_PID);
     }
 
@@ -82,36 +67,55 @@ public class AutoPilot implements Command {
 
     @Override
     public void initialize() {
-        mTrajFollowing = mTrajGen;
-        mPathFollwing.setPoses(mTrajFollowing.getStates().stream().map(s -> s.poseMeters).toList());
+        mTrajectory = generatePath();
+        mTrajectoryPath.setPoses(mTrajectory.getStates().stream().map(s -> s.poseMeters).toList());
 
+        // clear timer
         mTimer.reset();
         mTimer.start();
 
-        PathPlannerServer.sendActivePath(mTrajFollowing.getStates());
+        // Update path planner app of what we are doing.
+        PathPlannerServer.sendActivePath(mTrajectory.getStates());
+
+        // TODO: revamp field constant naming, its weird.
+        FieldArea area;
+        if (OperatorInterface.getZone().equals(OpZone.SUBSTATIONS)) {
+            area = FieldArea.LOADING_ZONE;
+        } else {
+            area = FieldArea.COMMUNITY;
+        }
+        // If the area where we want to drive to does not contain where we currently are, ie: we are
+        // in the battlezone, we probably shouldn't use autopilot
+        if (!area.contains(mDrivetrain.getPose())) {
+            end(true);
+        }
     }
 
     @Override
     public void execute() {
-        FieldZone selectedZone = mZoneChooser.getSelected();
-        FieldArea area = FieldArea.COMMUNITY;
-        if (selectedZone == FieldZone.DOUBLE_SUBSTATION_LEFT
-                || selectedZone == FieldZone.DOUBLE_SUBSTATION_RIGHT) area = FieldArea.LOADING_ZONE;
-        // if the robot is not within the target area, continue running default command (ie: let
-        // driver drive lol)
-        if (!area.contains(mDrivetrain.getPose())) {
-            mDrivetrain.getDefaultCommand().execute();
-            initialize();
-            return;
-        }
 
-        if (mTimer.hasElapsed(mTrajFollowing.getTotalTimeSeconds())) {
-            // restart command.
-            initialize();
+        // If the previous iteration has completed determine if we need to do it again.
+        if (mTimer.hasElapsed(mTrajectory.getTotalTimeSeconds())) {
+            Pose2d drive = mDrivetrain.getPose();
+            Pose2d ideal = mTrajectory.getEndState().poseMeters;
+            Translation2d drivePose = drive.getTranslation();
+            Translation2d idealPose = ideal.getTranslation();
+            Rotation2d driveRotation = drive.getRotation();
+            Rotation2d idealRotation = ideal.getRotation();
+            // If drive is > 3cm away from pose, or > 2 deg out of allignment, iterate and do it again.
+            double poseDifferenceMeters = idealPose.getDistance(drivePose);
+            double rotationDifferenceDegrees =
+                    idealRotation.rotateBy(driveRotation.unaryMinus()).getDegrees();
+            if (poseDifferenceMeters > .03 || rotationDifferenceDegrees > 2) {
+                initialize();
+            } else {
+                end(false);
+                return;
+            }
         }
 
         double currentTime = mTimer.get();
-        PathPlannerState desiredState = (PathPlannerState) mTrajFollowing.sample(currentTime);
+        PathPlannerState desiredState = (PathPlannerState) mTrajectory.sample(currentTime);
 
         Pose2d currentPose = mDrivetrain.getPose();
         PathPlannerServer.sendPathFollowingData(
@@ -129,13 +133,13 @@ public class AutoPilot implements Command {
         mTimer.stop();
 
         // Clear traj visualization.
-        mTrajFollowing = new PathPlannerTrajectory();
+        mTrajectory = new PathPlannerTrajectory();
 
         // stop movement from perpetuating.
         mDrivetrain.setChassisSpeeds(new ChassisSpeeds());
     }
 
-    public void generatePath() {
+    public PathPlannerTrajectory generatePath() {
         Pose2d initialPose = mDrivetrain.getPose();
         Transform2d robotSpacing =
                 new Transform2d(
@@ -164,22 +168,44 @@ public class AutoPilot implements Command {
         PathPoint finalPoint =
                 new PathPoint(finalPose.getTranslation(), heading, finalPose.getRotation());
 
-        mTrajGen = PathPlanner.generatePath(mPathConstraints, initialPoint, finalPoint);
-
+        PathPlannerTrajectory traj = PathPlanner.generatePath(mPathConstraints, initialPoint, finalPoint);
         // Put path on dbg field.
-        mPathGen.setPoses(mTrajGen.getStates().stream().map(s -> s.poseMeters).toList());
+        mTrajectoryPath.setPoses(traj.getStates().stream().map(s -> s.poseMeters).toList());
+
+        return traj;
     }
 
     public Pose2d getDesiredPose() {
-        return AutoPilotConstants.getAutoPilotPose(
-                mZoneChooser.getSelected(), mGridChooser.getSelected());
-    }
+        // System.out.println(OperatorInterface.getSelectedNode()[0] % 3);
+        Column desiredColumn =  switch (OperatorInterface.getSelectedNode()[0] % 3) {
+                    case 0 -> Column.LEFT_CONE;
+                    case 1 -> Column.MID_CUBE;
+                    case 2 -> Column.RIGHT_CONE;
+                    default -> Column.MID_CUBE;
+        };
 
-    public PathPlannerTrajectory getActiveTrajectory() {
-        return mTrajFollowing;
+        // System.out.println(OperatorInterface.getZone());
+        FieldZone desiredZone = switch (OperatorInterface.getZone()) {
+            case NODES -> switch (OperatorInterface.getSelectedNode()[0]) {
+                case 0, 1, 2 -> FieldZone.LEFT_GRID;
+                case 3, 4, 5 -> FieldZone.CO_OP_GRID;
+                case 6, 7, 8 -> FieldZone.RIGHT_GRID;
+                default -> FieldZone.CO_OP_GRID;
+            };
+            case SUBSTATIONS -> switch(OperatorInterface.getSelectedSubstation()) {
+                case 0 -> FieldZone.DOUBLE_SUBSTATION_LEFT;
+                case 1 -> FieldZone.DOUBLE_SUBSTATION_RIGHT;
+                default -> FieldZone.DOUBLE_SUBSTATION_LEFT;
+            };
+            default -> FieldZone.CO_OP_GRID;
+        };
+
+        // System.out.println(desiredZone.name() + " " + desiredColumn.name());
+        return AutoPilotConstants.getAutoPilotPose(
+                desiredZone, desiredColumn);
     }
 
     public PathPlannerTrajectory getTrajectory() {
-        return mTrajGen;
+        return mTrajectory;
     }
 }

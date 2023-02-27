@@ -12,16 +12,16 @@ import edu.wpi.first.math.util.Units;
 
 public final class VisionConstants {
 
-    public static final String CAMERA_NAME = "OV5647";
+    public static final String VISION_CAM_NAME = "OV5647";
     public static final String DRIVER_CAM_NAME = "HD_Pro_Webcam_C920";
 
     public static final Transform3d CAMERA_TO_ROBOT_TRANSFORM =
             new Transform3d(
-                    new Translation3d(0, 0, -Units.inchesToMeters(24)),
-                    new Rotation3d(0, Units.degreesToRadians(-5), 0));
+                    new Translation3d(Units.inchesToMeters(17), Units.inchesToMeters(3), Units.inchesToMeters(9)),
+                    new Rotation3d(0, 0, 0)).inverse();
 
     // Sim variables
-    public static final double DIAG_FOV_DEGREES = 67.8011799307;
+    public static final double DIAG_FOV_DEGREES = 67.0;
 
     public static final double MAX_DETECTION_DISTANCE = Units.feetToMeters(20);
     public static final int WIDTH_PIXELS = 640;

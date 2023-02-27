@@ -12,4 +12,13 @@ public class OIConstants {
     public static final int OPERATOR_CONTROLLER_PORT = 1;
 
     public static final ShuffleboardTab OI_TAB = Shuffleboard.getTab("Operator Interface");
+
+    public static final String UNSELECTED_CONE_COLOR = "#40361c";
+    public static final String SELECTED_CONE_COLOR = "#FFD871";
+    public static final String UNSELECTED_CUBE_COLOR = "#251b40";
+    public static final String SELECTED_CUBE_COLOR = "#976eff";
+    public static final String UNSELECTED_HYBRID_COLOR = "#403339";
+    public static final String SELECTED_HYBRID_COLOR = "#CBA3B8";
+    public static final String UNSELECTED_SUBSTATION_COLOR = "#505050";
+    public static final String SELECTED_SUBSTATION_COLOR = "FFFFFF";
 }

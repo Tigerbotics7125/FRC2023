@@ -40,7 +40,7 @@ public class Vision extends SnakeEyes implements Subsystem {
     private SimVisionSystem mSimVision;
 
     public Vision() {
-        super(CAMERA_NAME, CAMERA_TO_ROBOT_TRANSFORM.inverse());
+        super(VISION_CAM_NAME, CAMERA_TO_ROBOT_TRANSFORM.inverse());
         // Register command to use periodic calls.
         register();
 
@@ -86,14 +86,14 @@ public class Vision extends SnakeEyes implements Subsystem {
         if (Robot.isSimulation()) {
             mSimVision =
                     new SimVisionSystem(
-                            CAMERA_NAME,
+                            VISION_CAM_NAME,
                             DIAG_FOV_DEGREES,
                             CAMERA_TO_ROBOT_TRANSFORM,
                             MAX_DETECTION_DISTANCE,
                             WIDTH_PIXELS,
                             HEIGHT_PIXELS,
                             MIN_TARGET_AREA);
-            mSimCam = new SimPhotonCamera(CAMERA_NAME);
+            mSimCam = new SimPhotonCamera(VISION_CAM_NAME);
 
             if (mFieldLayout != null) {
                 // Add tags to simulation.

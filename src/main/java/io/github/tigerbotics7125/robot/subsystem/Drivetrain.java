@@ -245,6 +245,10 @@ public class Drivetrain extends SubsystemBase {
      * @param openLoop Whether to use open or closed loop control.
      */
     public void drive(double x, double y, double z_x, double z_y, boolean openLoop) {
+        if (openLoop) {
+            y = -y;
+            // z_x = -z_x;
+        }
 
         // Determines if there is rotation input.
         boolean noRotationInput = z_x == 0.0 && z_y == 0.0;
