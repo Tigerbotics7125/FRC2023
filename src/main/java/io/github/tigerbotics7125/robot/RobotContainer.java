@@ -5,103 +5,170 @@
  */
 package io.github.tigerbotics7125.robot;
 
-import static io.github.tigerbotics7125.robot.Constants.OperatorInterface.kDriverPort;
-import static io.github.tigerbotics7125.robot.Constants.OperatorInterface.kOperatorPort;
-import static io.github.tigerbotics7125.robot.Constants.Vision.kTagLayout;
+import static io.github.tigerbotics7125.robot.constants.OIConstants.*;
+import static io.github.tigerbotics7125.robot.constants.RobotConstants.PNEUMATICS_MODULE_TYPE;
+import static io.github.tigerbotics7125.tigerlib.input.trigger.Trigger.ActivationCondition.*;
 
+import com.pathplanner.lib.auto.MecanumAutoBuilder;
+import com.pathplanner.lib.auto.PIDConstants;
+import edu.wpi.first.wpilibj.Compressor;
+import edu.wpi.first.wpilibj.RobotController;
+import edu.wpi.first.wpilibj.shuffleboard.Shuffleboard;
+import edu.wpi.first.wpilibj.smartdashboard.Field2d;
+import edu.wpi.first.wpilibj.smartdashboard.SendableChooser;
+import edu.wpi.first.wpilibj2.command.Command;
+import edu.wpi.first.wpilibj2.command.Commands;
+import io.github.tigerbotics7125.lib.AllianceFlipUtil;
+import io.github.tigerbotics7125.robot.auto.Auto;
+import io.github.tigerbotics7125.robot.auto.CenterDelayMobility;
+import io.github.tigerbotics7125.robot.auto.None;
+import io.github.tigerbotics7125.robot.constants.AutoPilotConstants;
 import io.github.tigerbotics7125.robot.subsystem.Drivetrain;
 import io.github.tigerbotics7125.robot.subsystem.Drivetrain.TurningMode;
+import io.github.tigerbotics7125.robot.subsystem.Intake;
+import io.github.tigerbotics7125.robot.subsystem.SuperStructure;
 import io.github.tigerbotics7125.robot.subsystem.Vision;
 import io.github.tigerbotics7125.tigerlib.input.controller.XboxController;
 import io.github.tigerbotics7125.tigerlib.input.trigger.Trigger;
 import io.github.tigerbotics7125.tigerlib.input.trigger.Trigger.ActivationCondition;
-
-import edu.wpi.first.math.geometry.Pose2d;
-import edu.wpi.first.math.geometry.Rotation2d;
-import edu.wpi.first.wpilibj.RobotController;
-import edu.wpi.first.wpilibj.RobotState;
-import edu.wpi.first.wpilibj.smartdashboard.Field2d;
-import edu.wpi.first.wpilibj.smartdashboard.SmartDashboard;
-
-import java.util.ArrayList;
-import java.util.List;
+import io.github.tigerbotics7125.tigerlib.util.JoystickUtil;
 
 public class RobotContainer {
 
-    XboxController mDriver = new XboxController(kDriverPort);
-    XboxController mOperator = new XboxController(kOperatorPort);
+    XboxController mDriver = new XboxController(DRIVER_CONTROLLER_PORT);
+    XboxController mOperator = new XboxController(OPERATOR_CONTROLLER_PORT);
     Trigger mRioUserButton = new Trigger(RobotController::getUserButton);
 
-    Drivetrain mDrivetrain = new Drivetrain();
     Vision mVision = new Vision();
+    Drivetrain mDrivetrain = new Drivetrain();
+    Intake mIntake = new Intake();
+    SuperStructure mSuperStruc = new SuperStructure();
+    Compressor mCompressor = new Compressor(PNEUMATICS_MODULE_TYPE);
+
+    AutoPilot mAutoPilot = new AutoPilot(mDrivetrain, OperatorInterface::getAutoPilotPoint);
 
     Field2d mField = new Field2d();
-    AprilTagLayout mTagLayout = new AprilTagLayout(kTagLayout);
 
-    boolean correcting = false;
+    SendableChooser<Auto> mAutoChooser = new SendableChooser<>();
 
     public RobotContainer() {
+        mCompressor.enableDigital();
+        configTriggers();
+        configDefaultCommands();
+        configDashboard();
 
-	initDriver();
-	initOperator();
-
-	initTriggers();
-
-	initDefaultCommands();
-
-	if (Robot.isSimulation()) {
-	    List<Pose2d> tagPoses = new ArrayList<>();
-	    mField.getObject("16h5Tags").setPoses(tagPoses);
-	    mTagLayout.getTags().forEach((t) -> {
-		mVision.addAprilTag(t.getID(), t.getPose());
-		tagPoses.add(t.getPose().toPose2d());
-	    });
-	}
+        mDrivetrain.setFieldOriented(false);
+        mDrivetrain.setTurningMode(TurningMode.JOYSTICK_DIRECT);
     }
 
-    /** Initialize Driver Triggers. */
-    private void initDriver() {
-	mDriver.start().trigger(mDrivetrain::resetGyro);
-	mDriver.lb().trigger(() -> mDrivetrain.setTurningMode(TurningMode.JOYSTICK_DIRECT));
-	mDriver.rb().trigger(() -> mDrivetrain.setTurningMode(TurningMode.JOYSTICK_ANGLE));
-	mDriver.y().trigger(() -> mDrivetrain.setTurningMode(TurningMode.HEADING_LOCK));
+    public Command getAutoCommand() {
 
-	mDriver.back().trigger(() -> correcting = true);
-	mDriver.back().activate(ActivationCondition.ON_FALLING).trigger(() -> correcting = false);
+        Auto auto = mAutoChooser.getSelected();
+
+        MecanumAutoBuilder autoBuilder =
+                new MecanumAutoBuilder(
+                        mDrivetrain::getPose,
+                        mDrivetrain::setPose,
+                        new PIDConstants(1, 0, 0),
+                        new PIDConstants(1, 0, 0),
+                        mDrivetrain::setChassisSpeeds,
+                        auto.getEventMap(),
+                        true,
+                        mDrivetrain);
+
+        return autoBuilder.fullAuto(auto.getPath());
     }
 
-    /** Initialize Operator Triggers. */
-    private void initOperator() {}
+    private void configTriggers() {
+        // Driver
+        mDriver.b().trigger(mDrivetrain::resetGyro);
+        mDriver.lb().trigger(() -> mDrivetrain.setTurningMode(TurningMode.JOYSTICK_DIRECT));
+        mDriver.rb().trigger(() -> mDrivetrain.setTurningMode(TurningMode.JOYSTICK_ANGLE));
+        mDriver.y().trigger(() -> mDrivetrain.setTurningMode(TurningMode.HEADING_LOCK));
 
-    /** Initialize non-OI Triggers. */
-    private void initTriggers() {
-	new Trigger(RobotController::getUserButton).trigger(() -> mDrivetrain.setPose(new Pose2d(), new Rotation2d()));
-	new Trigger(RobotState::isDisabled).trigger(mDrivetrain::setCoastMode);
-	new Trigger(RobotState::isEnabled).trigger(mDrivetrain::setBrakeMode);
+        mDriver.start()
+                .activate(ActivationCondition.WHILE_HIGH)
+                .trigger(mAutoPilot.getAutoPilotCommand());
 
-	new Trigger(mVision::hasTargets).trigger(() -> {
-	    double timestamp = mVision.getTimestamp();
-	    mVision.getRobotPoseEstimates().forEach((pose) -> {
-		mDrivetrain.addVisionMeasurement(pose.toPose2d(), timestamp);
-	    });
-	});
+        // Operator
+        mOperator.pov.left().trigger(OperatorInterface.selectLeft());
+        mOperator.pov.up().trigger(OperatorInterface.selectUp());
+        mOperator.pov.right().trigger(OperatorInterface.selectRight());
+        mOperator.pov.down().trigger(OperatorInterface.selectDown());
+
+        mOperator.lb().trigger(OperatorInterface.selectLeftSubstation());
+        mOperator.rb().trigger(OperatorInterface.selectRightSubstation());
+
+        mOperator.start().trigger(OperatorInterface.toggleZone());
+
+        mOperator.a().trigger(mIntake.releaseObject());
+        mOperator.b().trigger(mIntake.grabObject());
+        mOperator.y().trigger(mIntake::intake);
+        mOperator.x().trigger(mIntake::disable);
+
+        mOperator
+                .rb()
+                .activate(WHILE_HIGH)
+                .trigger(
+                        Commands.runOnce(
+                                () ->
+                                        mSuperStruc.armDuty(
+                                                JoystickUtil.clamp(
+                                                        mOperator.rightY().get(), -.2, .2))));
+        mOperator
+                .lb()
+                .activate(WHILE_HIGH)
+                .trigger(
+                        Commands.runOnce(
+                                () ->
+                                        mSuperStruc.wristDuty(
+                                                JoystickUtil.clamp(
+                                                        mOperator.rightY().get(), -.2, .2))));
+        /*
+        mOperator.pov.up().activate(WHILE_HIGH).trigger(Commands.runOnce(() -> mSuperStruc.elevatorDuty(.5)));
+        mOperator.pov.down().activate(WHILE_HIGH).trigger(Commands.runOnce(() -> mSuperStruc.elevatorDuty(-0.5)));
+        */
+
+        mOperator.pov.up().activate(WHILE_HIGH).trigger(mSuperStruc.elevatorUp());
+        mOperator.pov.up().activate(WHILE_HIGH).trigger(mSuperStruc.elevatorDown());
     }
 
-    /** Set Subsystem's default commands. */
-    private void initDefaultCommands() {
-	mDrivetrain.setDefaultCommand(mDrivetrain.driveCmd(mDriver.leftY()::get, mDriver.leftX()::get,
-		mDriver.rightX()::get, mDriver.rightY()::get));
+    public void configDashboard() {
+        Shuffleboard.getTab("odometry").add(mField);
+
+        mAutoChooser.setDefaultOption("NONE", new None());
+        mAutoChooser.addOption("Center Delay to Wall", new CenterDelayMobility());
+    }
+
+    private void configDefaultCommands() {
+        mDrivetrain.setDefaultCommand(
+                mDrivetrain.driveCmd(
+                        mDriver.leftY()::get,
+                        mDriver.leftX()::get,
+                        mDriver.rightY()::get,
+                        mDriver.rightX()::get,
+                        true));
+
+        mIntake.setDefaultCommand(Commands.run(mIntake::disable, mIntake));
+        mSuperStruc.setDefaultCommand(Commands.run(mSuperStruc::disable, mSuperStruc));
+    }
+
+    /** Periodic call, always runs. */
+    public void periodic() {
+
+        // mVision.getEstimatedPose().ifPresent(mDrivetrain::addVisionEstimate);
+
+        mField.setRobotPose(mDrivetrain.getPose());
+        mField.getObject("Flipped").setPose(AllianceFlipUtil.apply(mDrivetrain.getPose()));
+        mField.getObject("Community")
+                .setPoses(AutoPilotConstants.AutoPilotBoundary.COMMUNITY.getPoses());
+        mField.getObject("LoadingZone")
+                .setPoses(AutoPilotConstants.AutoPilotBoundary.LOADING_ZONE.getPoses());
     }
 
     /** Periodic call, only runs during simulation. */
     public void simulationPeriodic() {
-	// update sim vision with our robot pose.
-	Pose2d robotPose = mDrivetrain.getPose();
-	mVision.updateCameraPose(robotPose);
-	mField.setRobotPose(robotPose);
-
-	// put data to dashboard.
-	SmartDashboard.putData(mField);
+        // update sim vision with our robot pose.
+        mVision.update(mDrivetrain.getPose());
     }
-
 }

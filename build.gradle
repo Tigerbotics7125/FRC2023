@@ -1,11 +1,22 @@
 plugins {
     id "java"
-    id "edu.wpi.first.GradleRIO" version "2023.1.1"
+    id "edu.wpi.first.GradleRIO" version "2023.4.2"
     id "com.diffplug.spotless" version "6.7.2"
+    id "com.peterabeles.gversion" version "1.10"
 }
 
 sourceCompatibility = JavaVersion.VERSION_17
 targetCompatibility = JavaVersion.VERSION_17
+
+project.compileJava.dependsOn(createVersionFile)
+gversion {
+    srcDir = "src/main/java"
+    classPackage = "io.github.tigerbotics7125.robot"
+    className = "BuildConstants"
+    dateFormat = "yyyy-MM-dd HH:mm:ss z"
+    timeZone = "America/Chicago"
+    indent = "  "
+}
 
 def ROBOT_MAIN_CLASS = "io.github.tigerbotics7125.robot.Main"
 
@@ -48,13 +59,20 @@ def includeDesktopSupport = true
 
 allprojects {
     repositories {
+        mavenCentral()
         maven { url 'https://jitpack.io' }
-        mavenLocal()
+        maven {
+            url 'https://maven.photonvision.org/repository/internal'
+        }
+        maven {
+            url 'https://maven.photonvision.org/repository/snapshots'
+        }
     }
 }
 
+
 dependencies {
-    implementation 'com.github.tigerbotics7125:tigerlib:2023.0.1'
+    implementation 'com.github.tigerbotics7125:tigerlib:2023.4.2'
 
     implementation wpi.java.deps.wpilib()
     implementation wpi.java.vendor.java()
@@ -93,12 +111,7 @@ wpi.java.configureExecutableTasks(jar)
 wpi.java.configureTestTasks(test)
 
 spotless {
-    // get enforce property
-    // var enforceSpotless = project.properties["enforceSpotless"]
-    // set enforceCheck by converting string to boolean
-    // defaults to true if not set
-    // enforceCheck = enforceSpotless != "false"
-    setEnforceCheck(false)
+    enforceCheck false
     java {
         target fileTree('.') {
             include '**/*.java'
@@ -107,7 +120,8 @@ spotless {
         licenseHeaderFile 'LICENSE_SHORTHAND'
         importOrder('\\#', 'io.github.tigerbotics7125.tigerLib', 'io.github.tigerbotics7125', 'edu.wpi', '')
         removeUnusedImports()
-        eclipse().configFile('java-formatter.xml')
+        // eclipse().configFile('java-formatter.xml')
+        googleJavaFormat('1.10.0').aosp().reflowLongStrings()
     }
     groovyGradle {
         target fileTree('.') {
