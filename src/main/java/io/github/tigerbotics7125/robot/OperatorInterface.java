@@ -7,11 +7,17 @@ package io.github.tigerbotics7125.robot;
 
 import static io.github.tigerbotics7125.robot.constants.OIConstants.*;
 
+import edu.wpi.first.wpilibj.DriverStation;
+import edu.wpi.first.wpilibj.DriverStation.Alliance;
 import edu.wpi.first.wpilibj.RobotState;
 import edu.wpi.first.wpilibj.Timer;
-import edu.wpi.first.wpilibj.shuffleboard.*;
+import edu.wpi.first.wpilibj.shuffleboard.BuiltInLayouts;
+import edu.wpi.first.wpilibj.shuffleboard.BuiltInWidgets;
+import edu.wpi.first.wpilibj.shuffleboard.SendableCameraWrapper;
+import edu.wpi.first.wpilibj.shuffleboard.ShuffleboardLayout;
 import edu.wpi.first.wpilibj2.command.Command;
 import edu.wpi.first.wpilibj2.command.Commands;
+import io.github.tigerbotics7125.robot.constants.AutoPilotConstants.AutoPilotPoint;
 import io.github.tigerbotics7125.robot.constants.VisionConstants;
 import java.util.Map;
 import java.util.stream.Stream;
@@ -58,11 +64,11 @@ public class OperatorInterface {
         OI_TAB.addString("Match Time", () -> mMatchTime)
                 .withWidget(BuiltInWidgets.kTextView)
                 .withPosition(0, 0)
-                .withSize(2, 1);
+                .withSize(1, 1);
 
         // Dont let photon use computation on it
         mDriverCam.setDriverMode(true);
-        // Add camera widget.
+        // Add camera widgets.
         OI_TAB.add(
                         "Driver Cam",
                         SendableCameraWrapper.wrap(
@@ -72,6 +78,26 @@ public class OperatorInterface {
                 .withPosition(0, 1)
                 .withSize(4, 4)
                 .withProperties(Map.of("Show crosshair", false, "Show controls", false));
+        OI_TAB.add(
+                        "Vision Cam",
+                        SendableCameraWrapper.wrap(
+                                "Vision Cam",
+                                "http://10.71.25.11:1182/stream.mjpg",
+                                "http://photonvision.local:1182/stream.mjpg"))
+                .withPosition(4, 2)
+                .withSize(3, 2)
+                .withProperties(Map.of("Show crosshair", false, "Show controls", false));
+
+        // Add widget showing if autopilot is available.
+        OI_TAB.addBoolean(
+                        "Auto Pilot",
+                        () ->
+                                AutoPilot.isViable(
+                                        Robot.mRobotContainer.mDrivetrain.getPose(),
+                                        getAutoPilotPoint()))
+                .withWidget(BuiltInWidgets.kBooleanBox)
+                .withPosition(1, 0)
+                .withSize(1, 1);
         OI_TAB.add(Robot.mRobotContainer.mAutoChooser)
                 .withPosition(2, 0)
                 .withSize(2, 1)
@@ -81,6 +107,63 @@ public class OperatorInterface {
     /** Call periodically to update dashboard values. */
     public static void update() {
         updateMatchTime();
+    }
+
+    /** @return The desired AutoPilotPoint as determined by the dashboard. */
+    public static AutoPilotPoint getAutoPilotPoint() {
+        if (getZone() == OpZone.NODES) {
+            // Node selector.
+            int columnIndex = getSelectedNode()[0];
+            if (DriverStation.getAlliance() == Alliance.Red) {
+                // Red alliance selection.
+                return switch (columnIndex) {
+                    case 0 -> AutoPilotPoint.FAR_FAR_CONE;
+                    case 1 -> AutoPilotPoint.FAR_CUBE;
+                    case 2 -> AutoPilotPoint.FAR_BARRIER_CONE;
+                    case 3 -> AutoPilotPoint.COOP_FAR_CONE;
+                    case 4 -> AutoPilotPoint.COOP_CUBE;
+                    case 5 -> AutoPilotPoint.COOP_BARRIER_CONE;
+                    case 6 -> AutoPilotPoint.BARRIER_FAR_CONE;
+                    case 7 -> AutoPilotPoint.BARRIER_CUBE;
+                    case 8 -> AutoPilotPoint.BARRIER_BARRIER_CONE;
+                    default -> AutoPilotPoint.COOP_CUBE;
+                };
+            } else {
+                // Blue alliance selection
+                return switch (columnIndex) {
+                    case 0 -> AutoPilotPoint.BARRIER_BARRIER_CONE;
+                    case 1 -> AutoPilotPoint.BARRIER_CUBE;
+                    case 2 -> AutoPilotPoint.BARRIER_FAR_CONE;
+                    case 3 -> AutoPilotPoint.COOP_BARRIER_CONE;
+                    case 4 -> AutoPilotPoint.COOP_CUBE;
+                    case 5 -> AutoPilotPoint.COOP_FAR_CONE;
+                    case 6 -> AutoPilotPoint.FAR_BARRIER_CONE;
+                    case 7 -> AutoPilotPoint.FAR_CUBE;
+                    case 8 -> AutoPilotPoint.FAR_FAR_CONE;
+                    default -> AutoPilotPoint.COOP_CUBE;
+                };
+            }
+        } else {
+            // Substation selector.
+            int substationIndex = getSelectedSubstation();
+            if (DriverStation.getAlliance() == Alliance.Red) {
+                // Red alliance selection.
+                return switch (substationIndex) {
+                    case 0 -> AutoPilotPoint.DOUBLE_SUBSTATION_BARRIER;
+                    case 1 -> AutoPilotPoint.DOUBLE_SUBSTATION_FAR;
+                    case 2 -> AutoPilotPoint.SINGLE_SUBSTATION;
+                    default -> AutoPilotPoint.DOUBLE_SUBSTATION_FAR;
+                };
+            } else {
+                // Blue alliance selection.
+                return switch (substationIndex) {
+                    case 0 -> AutoPilotPoint.DOUBLE_SUBSTATION_FAR;
+                    case 1 -> AutoPilotPoint.DOUBLE_SUBSTATION_BARRIER;
+                    case 2 -> AutoPilotPoint.SINGLE_SUBSTATION;
+                    default -> AutoPilotPoint.DOUBLE_SUBSTATION_FAR;
+                };
+            }
+        }
     }
 
     /** Initialize and fill the node selector */
@@ -263,6 +346,9 @@ public class OperatorInterface {
                 case SUBSTATIONS -> mSubstations[mSelectedSubstation] = false;
             }
         }
+
+        // Set the current zone
+        mCurrentZone = zone;
     }
 
     public static Command toggleZone() {
