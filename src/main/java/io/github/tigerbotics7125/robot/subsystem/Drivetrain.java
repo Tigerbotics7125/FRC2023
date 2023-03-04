@@ -29,6 +29,8 @@ import edu.wpi.first.math.kinematics.MecanumDriveKinematics;
 import edu.wpi.first.math.kinematics.MecanumDriveWheelPositions;
 import edu.wpi.first.math.kinematics.MecanumDriveWheelSpeeds;
 import edu.wpi.first.math.util.Units;
+import edu.wpi.first.wpilibj.RobotState;
+import edu.wpi.first.wpilibj.SerialPort;
 import edu.wpi.first.wpilibj.Timer;
 import edu.wpi.first.wpilibj.drive.MecanumDrive;
 import edu.wpi.first.wpilibj.shuffleboard.Shuffleboard;
@@ -37,6 +39,7 @@ import edu.wpi.first.wpilibj2.command.Command;
 import edu.wpi.first.wpilibj2.command.Commands;
 import edu.wpi.first.wpilibj2.command.SubsystemBase;
 import io.github.tigerbotics7125.robot.Robot;
+import io.github.tigerbotics7125.tigerlib.input.trigger.Trigger;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.function.DoubleSupplier;
@@ -100,17 +103,28 @@ public class Drivetrain extends SubsystemBase {
         mPIDControllers = new ArrayList<>();
         mMotors.forEach(this::configureMotor);
 
-        mNavx = new AHRS();
+        mNavx = new AHRS(SerialPort.Port.kMXP);
 
         mKinematics = KINEMATICS;
         mPoseEstimator =
                 new MecanumDrivePoseEstimator(
                         mKinematics, getHeading(), getWheelPositions(), new Pose2d());
 
+        new Trigger(RobotState::isDisabled)
+                .trigger(
+                        Commands.waitSeconds(5)
+                                .andThen(() -> mMotors.forEach(m -> m.setIdleMode(IdleMode.kCoast)))
+                                .ignoringDisable(true));
+
+        new Trigger(RobotState::isEnabled)
+                .trigger(
+                        Commands.runOnce(
+                                () -> mMotors.forEach(m -> m.setIdleMode(IdleMode.kBrake))));
+
         // Setup dashboard values.
         ShuffleboardTab driveTab = Shuffleboard.getTab("drive");
-        driveTab.addNumber("Current Heading (rad)", () -> getHeading().getRadians());
-        driveTab.addNumber("Desired Heading (rad)", () -> mDesiredHeading.getRadians());
+        driveTab.addNumber("Current Heading", () -> getHeading().getRadians());
+        driveTab.addNumber("Desired Heading", () -> mDesiredHeading.getRadians());
         driveTab.addBoolean("Field Oriented (bool)", () -> mFieldOriented);
         driveTab.addString("Turning Mode (str)", () -> mTurningMode.name());
     }
@@ -245,10 +259,7 @@ public class Drivetrain extends SubsystemBase {
      * @param openLoop Whether to use open or closed loop control.
      */
     public void drive(double x, double y, double z_x, double z_y, boolean openLoop) {
-        if (openLoop) {
-            y = -y;
-            // z_x = -z_x;
-        }
+        z_y = -z_y;
 
         // Determines if there is rotation input.
         boolean noRotationInput = z_x == 0.0 && z_y == 0.0;
@@ -256,7 +267,7 @@ public class Drivetrain extends SubsystemBase {
         mDesiredHeading =
                 switch (mTurningMode) {
                     case JOYSTICK_DIRECT -> getHeading()
-                            .rotateBy(new Rotation2d(z_y, -Math.abs(z_y) + 1));
+                            .rotateBy(new Rotation2d(z_y * MAX_ANGULAR_VELOCITY / .02));
                     case JOYSTICK_ANGLE -> noRotationInput
                             ? HEADING_DEFAULT
                             : new Rotation2d(z_x, z_y);
@@ -284,6 +295,7 @@ public class Drivetrain extends SubsystemBase {
         // set outputs
         if (openLoop) {
             setWheelSpeeds(MecanumDrive.driveCartesianIK(input.getX(), input.getY(), thetaSpeed));
+
         } else {
             setChassisSpeeds(new ChassisSpeeds(input.getX(), input.getY(), thetaSpeed));
         }
@@ -315,9 +327,8 @@ public class Drivetrain extends SubsystemBase {
      * @param pose The pose.
      * @param heading The heading.
      */
-    public void setPose(Pose2d pose, Rotation2d heading) {
-        mPoseEstimator.resetPosition(heading, getWheelPositions(), pose);
-        mEncoders.forEach((encoder) -> encoder.setPosition(0));
+    public void setPose(Pose2d pose) {
+        mPoseEstimator.resetPosition(getHeading(), getWheelPositions(), pose);
     }
 
     public void setChassisSpeeds(ChassisSpeeds targetSpeeds) {
@@ -334,7 +345,7 @@ public class Drivetrain extends SubsystemBase {
                 List.of(speeds.frontLeft, speeds.frontRight, speeds.rearLeft, speeds.rearRight);
 
         for (int i = 0; i < 4; i++) {
-            mMotors.get(i).set(duties.get(i));
+            mPIDControllers.get(i).setReference(duties.get(i), ControlType.kDutyCycle);
         }
     }
 
