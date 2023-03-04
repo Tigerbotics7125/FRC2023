@@ -72,6 +72,10 @@ public class OperatorInterface {
                 .withPosition(0, 1)
                 .withSize(4, 4)
                 .withProperties(Map.of("Show crosshair", false, "Show controls", false));
+        OI_TAB.add(Robot.mRobotContainer.mAutoChooser)
+                .withPosition(2, 0)
+                .withSize(2, 1)
+                .withWidget(BuiltInWidgets.kComboBoxChooser);
     }
 
     /** Call periodically to update dashboard values. */

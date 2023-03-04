@@ -53,6 +53,8 @@ public class RobotContainer {
 
     Field2d mField = new Field2d();
 
+    SendableChooser<Auto> mAutoChooser = new SendableChooser<>();
+
     public RobotContainer() {
         mCompressor.enableDigital();
         configTriggers();
@@ -63,10 +65,22 @@ public class RobotContainer {
         sysIdMechChooser.setDefaultOption(mDrivetrain.getName(), mDrivetrain);
         Shuffleboard.getTab("sysId").add(sysIdMechChooser);
 
-        if (Robot.isSimulation()) {
-            mField.getObject("AprilTags")
-                    .setPoses(AprilTagLayout.getTags().stream().map(Pose3d::toPose2d).toList());
-        }
+    public Command getAutoCommand() {
+
+        Auto auto = mAutoChooser.getSelected();
+
+        MecanumAutoBuilder autoBuilder =
+                new MecanumAutoBuilder(
+                        mDrivetrain::getPose,
+                        mDrivetrain::setPose,
+                        new PIDConstants(1, 0, 0),
+                        new PIDConstants(1, 0, 0),
+                        mDrivetrain::setChassisSpeeds,
+                        auto.getEventMap(),
+                        true,
+                        mDrivetrain);
+
+        return autoBuilder.fullAuto(auto.getPath());
     }
 
     private void configTriggers() {
