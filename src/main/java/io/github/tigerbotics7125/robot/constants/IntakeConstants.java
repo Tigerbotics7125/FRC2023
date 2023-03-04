@@ -13,11 +13,11 @@ import edu.wpi.first.wpilibj.DoubleSolenoid.Value;
 public class IntakeConstants {
 
     // Default Characteristics
-    public static final DoubleSolenoid.Value DEFAULT_PNEUMATIC_STATE = Value.kReverse;
+    public static final DoubleSolenoid.Value DEFAULT_PNEUMATIC_STATE = Value.kForward;
 
     // IDs
-    public static final int MASTER_ID = 11;
-    public static final int SLAVE_ID = 12;
+    public static final int MASTER_ID = 41;
+    public static final int SLAVE_ID = 42;
     public static final int FORWARDS_CHANNEL = 0;
     public static final int REVERSE_CHANNEL = 1;
     public static final int OCCUPANCY_1_PORT = 1;
