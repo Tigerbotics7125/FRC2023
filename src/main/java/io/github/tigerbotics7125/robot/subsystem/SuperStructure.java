@@ -5,28 +5,19 @@
  */
 package io.github.tigerbotics7125.robot.subsystem;
 
+import static io.github.tigerbotics7125.robot.constants.SuperStructureConstants.*;
+
 import com.revrobotics.CANSparkMax;
 import com.revrobotics.CANSparkMax.IdleMode;
-import com.revrobotics.CANSparkMaxLowLevel.MotorType;
+import com.revrobotics.REVPhysicsSim;
+import com.revrobotics.SparkMaxPIDController;
 import edu.wpi.first.math.system.plant.DCMotor;
-import edu.wpi.first.math.util.Units;
-import edu.wpi.first.wpilibj.AnalogInput;
-import edu.wpi.first.wpilibj.DoubleSolenoid;
-import edu.wpi.first.wpilibj.DoubleSolenoid.Value;
-import edu.wpi.first.wpilibj.PneumaticsModuleType;
-import edu.wpi.first.wpilibj.shuffleboard.Shuffleboard;
-import edu.wpi.first.wpilibj.shuffleboard.ShuffleboardTab;
-import edu.wpi.first.wpilibj.simulation.SingleJointedArmSim;
-import edu.wpi.first.wpilibj.smartdashboard.Mechanism2d;
-import edu.wpi.first.wpilibj.smartdashboard.MechanismLigament2d;
-import edu.wpi.first.wpilibj.smartdashboard.MechanismRoot2d;
-import edu.wpi.first.wpilibj.util.Color;
-import edu.wpi.first.wpilibj.util.Color8Bit;
+import edu.wpi.first.wpilibj2.command.Command;
+import edu.wpi.first.wpilibj2.command.Commands;
 import edu.wpi.first.wpilibj2.command.SubsystemBase;
 import io.github.tigerbotics7125.lib.MB1122;
 import io.github.tigerbotics7125.robot.Robot;
-import io.github.tigerbotics7125.tigerlib.input.trigger.Trigger;
-import io.github.tigerbotics7125.tigerlib.input.trigger.Trigger.ActivationCondition;
+import io.github.tigerbotics7125.robot.constants.RobotConstants;
 
 public class SuperStructure extends SubsystemBase {
 
@@ -35,151 +26,112 @@ public class SuperStructure extends SubsystemBase {
         COASTING
     }
 
-    private BrakeState mArmBrakeState;
+    private BrakeState mArmBrakeState = BrakeState.BRAKING;
 
-    private MB1122 mElevatorDistanceSensor;
-    private CANSparkMax mLeftElevator;
-    private CANSparkMax mRightElevator;
+    private MB1122 mElevatorDistanceSensor = new MB1122(ELEVATOR_HEIGHT_SENSOR_RAW);
+    private CANSparkMax mElevatorMaster = new CANSparkMax(ELEVATOR_MASTER_ID, MOTOR_TYPE);
+    private CANSparkMax mElevatorSlave = new CANSparkMax(ELEVATOR_SLAVE_ID, MOTOR_TYPE);
 
-    private CANSparkMax mArm;
-    private DoubleSolenoid mArmBrake;
+    private CANSparkMax mArm = new CANSparkMax(ARM_MOTOR_ID, MOTOR_TYPE);
 
-    private double tubeThick = 0.0254;
-    private double elevX, elevY, elevHeight;
-    private double elevMin, elevMax;
-    private Mechanism2d mMechanism;
-    private MechanismRoot2d stage0Root, stage1Root, stage2Root, armRoot;
-    private MechanismLigament2d stage0, stage1, stage2, arm, intake;
-
-    private SingleJointedArmSim mArmSim;
+    private CANSparkMax mWrist = new CANSparkMax(WRIST_MOTOR_ID, MOTOR_TYPE);
 
     public SuperStructure() {
-        mElevatorDistanceSensor = new MB1122(new AnalogInput(0));
-        mLeftElevator = new CANSparkMax(11, MotorType.kBrushless);
-        mRightElevator = new CANSparkMax(12, MotorType.kBrushless);
-        mArm = new CANSparkMax(13, MotorType.kBrushless);
-        mArmBrake = new DoubleSolenoid(PneumaticsModuleType.REVPH, 0, 1);
+        configElevatorMotor(mElevatorMaster);
+        configElevatorMotor(mElevatorSlave);
+        mElevatorSlave.follow(mElevatorMaster, true);
+        configArmMotor(mArm);
+        configWristMotor(mWrist);
+    }
 
-        mRightElevator.follow(mLeftElevator);
+    public void configElevatorMotor(CANSparkMax motor) {
+        motor.restoreFactoryDefaults();
 
-        // Trigger to control braking of the motor and disk brake at the same time.
-        new Trigger(this::isArmBraking)
-                .activate(ActivationCondition.ON_RISING)
-                .trigger(() -> this.brakeArm())
-                .not()
-                .trigger(() -> this.coastArm());
+        motor.setIdleMode(IdleMode.kBrake);
+        motor.setSmartCurrentLimit(40);
+        motor.enableVoltageCompensation(RobotConstants.NOMINAL_VOLTAGE);
 
-        ShuffleboardTab tab = Shuffleboard.getTab("SuperStruc");
-        tab.addBoolean("armBraking", this::isArmBraking);
+        // TODO: Find ideal soft limit locations and encoder positions at that value.
+        // Should be able to auto configure OTF with the distance sensor.
+        /**
+         * motor.enableSoftLimit(SoftLimitDirection.kForward, true);
+         * motor.enableSoftLimit(SoftLimitDirection.kReverse, true);
+         */
+        SparkMaxPIDController pid = motor.getPIDController();
+        pid.setP(1);
+        pid.setI(0);
+        pid.setD(0);
+        pid.setOutputRange(-1, 1);
+
+        motor.burnFlash();
 
         if (Robot.isSimulation()) {
-
-            elevMax = 1.334530;
-            elevMin = 0;
-
-            elevX = 1;
-            elevY = 0;
-            elevHeight = elevMin;
-
-            double stage0Meters = 0.685800;
-            double stage1Meters = 0.711200;
-            double stage2Meters = 0.177800;
-            double armMeters = 1.33;
-            double intakeMeters = .2;
-
-            mMechanism = new Mechanism2d(3, 3);
-
-            stage0Root = mMechanism.getRoot("stage0Root", 0, 0);
-            stage0 =
-                    stage0Root.append(
-                            new MechanismLigament2d(
-                                    "stage0",
-                                    stage0Meters,
-                                    90,
-                                    15,
-                                    new Color8Bit(Color.kBlueViolet)));
-            stage1Root = mMechanism.getRoot("stage1Root", 0, 0);
-            stage1 =
-                    stage1Root.append(
-                            new MechanismLigament2d(
-                                    "stage1",
-                                    stage1Meters,
-                                    90,
-                                    10,
-                                    new Color8Bit(Color.kLightBlue)));
-            stage2Root = mMechanism.getRoot("stage2Root", 0, 0);
-            stage2 =
-                    stage2Root.append(
-                            new MechanismLigament2d(
-                                    "stage2",
-                                    stage2Meters,
-                                    90,
-                                    5,
-                                    new Color8Bit(Color.kFirstBlue)));
-            armRoot = mMechanism.getRoot("armRoot", 0, 0);
-            arm =
-                    armRoot.append(
-                            new MechanismLigament2d(
-                                    "arm", armMeters, 180, 10, new Color8Bit(Color.kIndianRed)));
-            intake =
-                    arm.append(
-                            new MechanismLigament2d(
-                                    "intake", intakeMeters, 0, 5, new Color8Bit(Color.kFirstRed)));
+            REVPhysicsSim.getInstance().addSparkMax(motor, DCMotor.getNEO(1));
         }
-        tab.add("Mech", mMechanism);
-
-        mArmSim =
-                new SingleJointedArmSim(
-                        DCMotor.getNEO(2),
-                        20.0,
-                        2.84575616194,
-                        1.1938,
-                        Math.PI / 2.0,
-                        3.0 * Math.PI / 2.0,
-                        true);
     }
 
-    @Override
-    public void simulationPeriodic() {
-        stage0Root.setPosition(elevX, elevY);
-        double stage1Height = elevY + (elevHeight / 2.0);
-        stage1Root.setPosition(elevX, stage1Height);
-        double elevPercentage = elevHeight / elevMax;
-        double stage2Height =
-                stage1Height
-                        + (elevPercentage * ((0.711200 - 2.0 * tubeThick) - 0.177800))
-                        + tubeThick;
-        stage2Root.setPosition(elevX, stage2Height);
-        armRoot.setPosition(elevX, stage2Height + 0.177800 / 2.0);
-        arm.setAngle(Units.radiansToDegrees(mArmSim.getAngleRads()));
+    public void configArmMotor(CANSparkMax motor) {
+
+        motor.restoreFactoryDefaults();
+
+        motor.setIdleMode(IdleMode.kBrake);
+        motor.setSmartCurrentLimit(20, 5, 0);
+        motor.enableVoltageCompensation(RobotConstants.NOMINAL_VOLTAGE);
+
+        SparkMaxPIDController pid = motor.getPIDController();
+        pid.setP(1);
+        pid.setI(0);
+        pid.setD(0);
+        pid.setOutputRange(-1, 1);
+
+        motor.burnFlash();
+
+        if (Robot.isSimulation()) {
+            REVPhysicsSim.getInstance().addSparkMax(motor, DCMotor.getNEO(1));
+        }
     }
 
-    public void moveElevator(double horizontal, double vertical) {
-        elevHeight += vertical;
-        if (elevHeight > elevMax) elevHeight = elevMax;
-        if (elevHeight < elevMin) elevHeight = elevMin;
+    private void configWristMotor(CANSparkMax motor) {
+        motor.restoreFactoryDefaults();
+        motor.setIdleMode(IdleMode.kBrake);
+        motor.setSmartCurrentLimit(20, 5, 0);
+        motor.enableVoltageCompensation(RobotConstants.NOMINAL_VOLTAGE);
 
-        // arm.setAngle(arm.getAngle() + horizontal);
-        intake.setAngle(180 - arm.getAngle());
+        SparkMaxPIDController pid = motor.getPIDController();
+        pid.setP(1);
+        pid.setI(0);
+        pid.setD(0);
 
-        mArmSim.setInputVoltage(horizontal * 12.0);
-        mArmSim.update(.02);
+        motor.burnFlash();
+
+        if (Robot.isSimulation()) {
+            REVPhysicsSim.getInstance().addSparkMax(motor, DCMotor.getNEO(1));
+        }
     }
 
-    /** @return If the arm is braking. */
-    public boolean isArmBraking() {
-        return mArmBrakeState == BrakeState.BRAKING;
+    public void disable() {
+        mElevatorMaster.disable();
+        mArm.disable();
+        mWrist.disable();
     }
 
-    /** Enable all braking devices for the arm. */
-    public void brakeArm() {
-        mArm.setIdleMode(IdleMode.kBrake);
-        mArmBrake.set(Value.kForward);
+    public Command elevatorUp() {
+        return Commands.runOnce(() -> elevatorDuty(.7));
     }
 
-    /** Disable all braking devices for the arm. */
-    public void coastArm() {
-        mArm.setIdleMode(IdleMode.kCoast);
-        mArmBrake.set(Value.kReverse);
+    public Command elevatorDown() {
+        return Commands.runOnce(() -> elevatorDuty(-.7));
+    }
+
+    public void elevatorDuty(double elevatorDuty) {
+        mElevatorMaster.set(elevatorDuty);
+    }
+
+    public void armDuty(double armDuty) {
+        mArm.set(armDuty);
+    }
+
+    public void wristDuty(double wristDuty) {
+        mWrist.set(wristDuty);
     }
 }
