@@ -8,8 +8,9 @@ package io.github.tigerbotics7125.robot;
 import com.revrobotics.CANSparkMax;
 import com.revrobotics.REVPhysicsSim;
 import edu.wpi.first.wpilibj.DriverStation;
-import edu.wpi.first.wpilibj.shuffleboard.*;
+import edu.wpi.first.wpilibj.shuffleboard.Shuffleboard;
 import edu.wpi.first.wpilibj.smartdashboard.SmartDashboard;
+import edu.wpi.first.wpilibj2.command.CommandScheduler;
 import io.github.tigerbotics7125.tigerlib.CommandRobot;
 
 public class Robot extends CommandRobot {
@@ -36,7 +37,7 @@ public class Robot extends CommandRobot {
     @Override
     public void autonomousInit() {
         OperatorInterface.startMatchSegment();
-        // mRobotContainer.getAutonomousCommand().schedule();
+        CommandScheduler.getInstance().schedule(mRobotContainer.getAutoCommand());
     }
 
     @Override
