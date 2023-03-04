@@ -8,18 +8,16 @@ package io.github.tigerbotics7125.robot.subsystem;
 import static io.github.tigerbotics7125.robot.constants.VisionConstants.*;
 
 import edu.wpi.first.apriltag.AprilTagFieldLayout;
-import edu.wpi.first.apriltag.AprilTagFields;
 import edu.wpi.first.math.geometry.Pose2d;
 import edu.wpi.first.math.util.Units;
-import edu.wpi.first.wpilibj.DriverStation;
 import edu.wpi.first.wpilibj.shuffleboard.Shuffleboard;
 import edu.wpi.first.wpilibj.shuffleboard.ShuffleboardTab;
 import edu.wpi.first.wpilibj.smartdashboard.Field2d;
 import edu.wpi.first.wpilibj.smartdashboard.FieldObject2d;
 import edu.wpi.first.wpilibj2.command.Subsystem;
 import io.github.tigerbotics7125.robot.Robot;
+import io.github.tigerbotics7125.robot.constants.FieldConstants;
 import io.github.tigerbotics7125.tigerlib.vision.SnakeEyes;
-import java.io.IOException;
 import java.util.Objects;
 import java.util.Optional;
 import org.photonvision.*;
@@ -57,25 +55,15 @@ public class Vision extends SnakeEyes implements Subsystem {
 
         mSBTab.add(mDbgField);
 
-        // Initialize field layout and pose estimator, may throw IOException.
-        try {
-            // May throw IOException.
-            mFieldLayout = AprilTagFields.k2023ChargedUp.loadAprilTagLayoutField();
+        mFieldLayout = FieldConstants.APRIL_TAG_FIELD_LAYOUT;
+        if (mFieldLayout != null) {
             mPhotonEstimator =
                     new PhotonPoseEstimator(
                             mFieldLayout,
                             PoseStrategy.MULTI_TAG_PNP,
                             this.mCam,
                             this.mRobotToCamera);
-            // Fallback when only 1 tag is seen.
             mPhotonEstimator.setMultiTagFallbackStrategy(PoseStrategy.LOWEST_AMBIGUITY);
-        } catch (IOException ioe) {
-            // Dont actually throw, but report the error.
-            DriverStation.reportError(
-                    "Failed to load AprilTagFieldLayout, no vision estimation is available.",
-                    ioe.getStackTrace());
-            mFieldLayout = null;
-            mPhotonEstimator = null;
         }
 
         if (mFieldLayout != null) {
