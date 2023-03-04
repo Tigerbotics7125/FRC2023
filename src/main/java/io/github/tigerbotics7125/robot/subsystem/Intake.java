@@ -11,15 +11,14 @@ import static io.github.tigerbotics7125.robot.constants.RobotConstants.PNEUMATIC
 import com.revrobotics.CANSparkMax;
 import com.revrobotics.CANSparkMaxLowLevel.MotorType;
 import com.revrobotics.REVPhysicsSim;
-import edu.wpi.first.wpilibj.AnalogInput;
 import edu.wpi.first.wpilibj.DoubleSolenoid;
 import edu.wpi.first.wpilibj.DoubleSolenoid.Value;
 import edu.wpi.first.wpilibj.shuffleboard.Shuffleboard;
 import edu.wpi.first.wpilibj.shuffleboard.ShuffleboardTab;
 import edu.wpi.first.wpilibj2.command.Command;
 import edu.wpi.first.wpilibj2.command.Commands;
-import edu.wpi.first.wpilibj2.command.ParallelCommandGroup;
 import edu.wpi.first.wpilibj2.command.SubsystemBase;
+import io.github.tigerbotics7125.robot.PowerMonitor;
 import io.github.tigerbotics7125.robot.Robot;
 import io.github.tigerbotics7125.robot.constants.RobotConstants;
 import io.github.tigerbotics7125.tigerlib.input.trigger.Trigger;
@@ -27,11 +26,6 @@ import io.github.tigerbotics7125.tigerlib.input.trigger.Trigger;
 public class Intake extends SubsystemBase {
     CANSparkMax mMaster;
     CANSparkMax mSlave;
-
-    AnalogInput mOccupancySensor1;
-    AnalogInput mOccupancySensor2;
-    Trigger mOccupancy1;
-    Trigger mOccupancy2;
 
     DoubleSolenoid mSolenoid;
 
@@ -42,27 +36,16 @@ public class Intake extends SubsystemBase {
         mSlave = new CANSparkMax(SLAVE_ID, MotorType.kBrushless);
         mSlave.follow(mMaster, true);
 
-        mOccupancySensor1 = new AnalogInput(OCCUPANCY_1_PORT);
-        mOccupancySensor2 = new AnalogInput(OCCUPANCY_2_PORT);
-
         mSolenoid = new DoubleSolenoid(PNEUMATICS_MODULE_TYPE, FORWARDS_CHANNEL, REVERSE_CHANNEL);
 
-        // create the acutal triggers
-        mOccupancy1 =
-                new Trigger(() -> mOccupancySensor1.getVoltage() <= OCCUPANCY_VOLTAGE_THRESHOLD)
-                        .debounce(OCCUPANCY_DEBOUNCE_TIME);
-        mOccupancy2 =
-                new Trigger(() -> mOccupancySensor2.getVoltage() <= OCCUPANCY_VOLTAGE_THRESHOLD)
-                        .debounce(OCCUPANCY_DEBOUNCE_TIME);
-
-        Trigger joinedOccupancy = mOccupancy1.and(mOccupancy2);
-        joinedOccupancy.trigger(grabObject());
+        double ampThreshold = 2;
+        new Trigger(() -> PowerMonitor.getInstance().getCurrent(5) > ampThreshold)
+                .trigger(this.grabObject());
 
         mSBTab = Shuffleboard.getTab("Intake");
-        mSBTab.addBoolean("Occupancy", joinedOccupancy::get);
-        mSBTab.addDouble("Sensor 1 Volts", mOccupancySensor1::getVoltage);
-        mSBTab.addDouble("Sensor 2 Volts", mOccupancySensor2::getVoltage);
         mSBTab.addBoolean("Claw", () -> mSolenoid.get().equals(Value.kForward));
+        mSBTab.addDouble("Master Motor Current", () -> PowerMonitor.getInstance().getCurrent(5));
+        mSBTab.addDouble("Slave Current", () -> PowerMonitor.getInstance().getCurrent(6));
     }
 
     /**
@@ -88,7 +71,9 @@ public class Intake extends SubsystemBase {
 
     /** Disables all motor and pneumatic output. */
     public void disable() {
-        mSolenoid.set(Value.kOff);
+        this.open();
+        mMaster.disable();
+        mSlave.disable();
     }
 
     /**
@@ -96,8 +81,10 @@ public class Intake extends SubsystemBase {
      *     object from slipping out.
      */
     public Command grabObject() {
-        ParallelCommandGroup command =
-                new ParallelCommandGroup(Commands.runOnce(this::close), Commands.run(this::grip));
+        var command =
+                Commands.sequence(
+                        Commands.run(this::intake).withTimeout(.15),
+                        Commands.parallel(Commands.runOnce(this::close), Commands.run(this::grip)));
         command.addRequirements(this);
         return command;
     }
@@ -107,9 +94,9 @@ public class Intake extends SubsystemBase {
      *     held object.
      */
     public Command releaseObject() {
-        ParallelCommandGroup command =
-                new ParallelCommandGroup(
-                        Commands.runOnce(this::open), Commands.run(this::eject).withTimeout(.5));
+        var command =
+                Commands.sequence(
+                        Commands.run(this::eject).withTimeout(.15), Commands.runOnce(this::open));
         command.addRequirements(this);
         return command;
     }
@@ -126,7 +113,7 @@ public class Intake extends SubsystemBase {
 
     /** Set the motors to intake. */
     public void intake() {
-        mMaster.set(0.5);
+        mMaster.set(1);
     }
 
     /** Set the motors to pull inwards slowly. */
@@ -136,6 +123,6 @@ public class Intake extends SubsystemBase {
 
     /** Set the motors to eject */
     public void eject() {
-        mMaster.set(-0.5);
+        mMaster.set(-1);
     }
 }
