@@ -6,16 +6,25 @@
 package io.github.tigerbotics7125.robot.subsystem;
 
 import static io.github.tigerbotics7125.robot.constants.SuperStructureConstants.*;
-
 import com.revrobotics.CANSparkMax;
+import com.revrobotics.CANSparkMax.ControlType;
 import com.revrobotics.CANSparkMax.IdleMode;
+import com.revrobotics.CANSparkMax.SoftLimitDirection;
 import com.revrobotics.REVPhysicsSim;
 import com.revrobotics.SparkMaxPIDController;
 import edu.wpi.first.math.system.plant.DCMotor;
+import edu.wpi.first.wpilibj.shuffleboard.Shuffleboard;
+import edu.wpi.first.wpilibj.smartdashboard.Mechanism2d;
+import edu.wpi.first.wpilibj.smartdashboard.MechanismLigament2d;
+import edu.wpi.first.wpilibj.smartdashboard.MechanismObject2d;
+import edu.wpi.first.wpilibj.smartdashboard.MechanismRoot2d;
+import edu.wpi.first.wpilibj.util.Color;
+import edu.wpi.first.wpilibj.util.Color8Bit;
 import edu.wpi.first.wpilibj2.command.Command;
 import edu.wpi.first.wpilibj2.command.Commands;
 import edu.wpi.first.wpilibj2.command.SubsystemBase;
-import io.github.tigerbotics7125.lib.MB1122;
+import io.github.tigerbotics7125.lib.Analog_873M_UltraSonic;
+import io.github.tigerbotics7125.lib.Analog_873M_UltraSonic.SensorType;
 import io.github.tigerbotics7125.robot.Robot;
 import io.github.tigerbotics7125.robot.constants.RobotConstants;
 
@@ -28,7 +37,7 @@ public class SuperStructure extends SubsystemBase {
 
     private BrakeState mArmBrakeState = BrakeState.BRAKING;
 
-    private MB1122 mElevatorDistanceSensor = new MB1122(ELEVATOR_HEIGHT_SENSOR_RAW);
+    private Analog_873M_UltraSonic mElevatorDistanceSensor = new Analog_873M_UltraSonic(SensorType.ANALOG_VOLTAGE, ELEVATOR_HEIGHT_SENSOR_RAW);
     private CANSparkMax mElevatorMaster = new CANSparkMax(ELEVATOR_MASTER_ID, MOTOR_TYPE);
     private CANSparkMax mElevatorSlave = new CANSparkMax(ELEVATOR_SLAVE_ID, MOTOR_TYPE);
 
@@ -36,12 +45,34 @@ public class SuperStructure extends SubsystemBase {
 
     private CANSparkMax mWrist = new CANSparkMax(WRIST_MOTOR_ID, MOTOR_TYPE);
 
+    private Mechanism2d mMech = new Mechanism2d(2, 2);
+    private MechanismRoot2d mRoot = mMech.getRoot("robot", 0.394837, 0.226789);
+    private MechanismLigament2d mElevatorMech = mRoot.append(
+            new MechanismLigament2d("Elevator", ELEV_START_DIST, ELEV_ANGLE.getDegrees(), 5, new Color8Bit(Color.kRed)));
+    private MechanismLigament2d mArmMech = mElevatorMech
+            .append(new MechanismLigament2d("Arm", ARM_LENGTH, ARM_START_ANGLE.getDegrees(), 5, new Color8Bit(Color.kBlue)));
+    private MechanismLigament2d mWristMech = mArmMech.append(
+            new MechanismLigament2d("Wrist", WRIST_LENGTH, WRIST_START_ANGLE.getDegrees(), 5, new Color8Bit(Color.kOrange)));
+
     public SuperStructure() {
         configElevatorMotor(mElevatorMaster);
         configElevatorMotor(mElevatorSlave);
+        mElevatorMaster.setInverted(true);
         mElevatorSlave.follow(mElevatorMaster, true);
+
         configArmMotor(mArm);
         configWristMotor(mWrist);
+
+        var tab = Shuffleboard.getTab("Super Structure");
+        tab.addDouble("Elevator%",
+                mElevatorDistanceSensor::getPercentage);
+        tab.addDouble("forwardLimit",() -> mElevatorMaster.getSoftLimit(SoftLimitDirection.kForward));
+        tab.addDouble("reverseLimit",
+                () -> mElevatorMaster.getSoftLimit(SoftLimitDirection.kReverse));
+
+        if (Robot.isSimulation()) {
+            tab.add("superstruc", mMech);
+        }
     }
 
     public void configElevatorMotor(CANSparkMax motor) {
@@ -51,12 +82,6 @@ public class SuperStructure extends SubsystemBase {
         motor.setSmartCurrentLimit(40);
         motor.enableVoltageCompensation(RobotConstants.NOMINAL_VOLTAGE);
 
-        // TODO: Find ideal soft limit locations and encoder positions at that value.
-        // Should be able to auto configure OTF with the distance sensor.
-        /**
-         * motor.enableSoftLimit(SoftLimitDirection.kForward, true);
-         * motor.enableSoftLimit(SoftLimitDirection.kReverse, true);
-         */
         SparkMaxPIDController pid = motor.getPIDController();
         pid.setP(1);
         pid.setI(0);
@@ -116,22 +141,29 @@ public class SuperStructure extends SubsystemBase {
     }
 
     public Command elevatorUp() {
-        return Commands.runOnce(() -> elevatorDuty(.7));
+        return Commands.run(() -> elevatorDuty(.7));
     }
 
     public Command elevatorDown() {
-        return Commands.runOnce(() -> elevatorDuty(-.7));
+        return Commands.run(() -> elevatorDuty(-.7));
     }
 
     public void elevatorDuty(double elevatorDuty) {
-        mElevatorMaster.set(elevatorDuty);
+        mElevatorMaster.getPIDController().setReference(elevatorDuty, ControlType.kDutyCycle);
     }
 
     public void armDuty(double armDuty) {
-        mArm.set(armDuty);
+       mArm.getPIDController().setReference(armDuty, ControlType.kDutyCycle);
     }
 
     public void wristDuty(double wristDuty) {
-        mWrist.set(wristDuty);
+        mWrist.getPIDController().setReference(wristDuty, ControlType.kDutyCycle);
+    }
+
+    @Override
+    public void periodic() {
+        mElevatorMech.setLength(mElevatorMaster.getEncoder().getPosition());
+        mArmMech.setAngle(Math.toDegrees(mArm.getEncoder().getPosition()));
+        mWristMech.setAngle(Math.toDegrees(mWrist.getEncoder().getPosition()));
     }
 }
