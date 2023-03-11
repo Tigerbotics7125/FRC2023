@@ -93,12 +93,12 @@ public class OperatorInterface {
                         "Auto Pilot",
                         () ->
                                 AutoPilot.isViable(
-                                        Robot.mRobotContainer.mDrivetrain.getPose(),
+                                        Robot.mDrivetrain.getPose(),
                                         getAutoPilotPoint()))
                 .withWidget(BuiltInWidgets.kBooleanBox)
                 .withPosition(1, 0)
                 .withSize(1, 1);
-        OI_TAB.add(Robot.mRobotContainer.mAutoChooser)
+        OI_TAB.add(Robot.mAutoChooser)
                 .withPosition(2, 0)
                 .withSize(2, 1)
                 .withWidget(BuiltInWidgets.kComboBoxChooser);
