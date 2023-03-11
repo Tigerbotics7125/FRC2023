@@ -7,6 +7,7 @@ package io.github.tigerbotics7125.robot.subsystem;
 
 import static io.github.tigerbotics7125.robot.constants.DrivetrainConstants.*;
 import static io.github.tigerbotics7125.robot.constants.RobotConstants.NOMINAL_VOLTAGE;
+import static io.github.tigerbotics7125.tigerlib.input.trigger.Trigger.ActivationCondition.*;
 
 import com.kauailabs.navx.frc.AHRS;
 import com.revrobotics.CANSparkMax;
@@ -112,12 +113,14 @@ public class Drivetrain extends SubsystemBase {
 
         new Trigger(RobotState::isDisabled)
                 .trigger(
+                        ON_RISING,
                         Commands.waitSeconds(5)
                                 .andThen(() -> mMotors.forEach(m -> m.setIdleMode(IdleMode.kCoast)))
                                 .ignoringDisable(true));
 
         new Trigger(RobotState::isEnabled)
                 .trigger(
+                        ON_RISING,
                         Commands.runOnce(
                                 () -> mMotors.forEach(m -> m.setIdleMode(IdleMode.kBrake))));
 
