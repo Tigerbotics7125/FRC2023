@@ -7,7 +7,7 @@ package io.github.tigerbotics7125.robot;
 
 import static io.github.tigerbotics7125.robot.constants.OIConstants.*;
 import static io.github.tigerbotics7125.tigerlib.input.trigger.Trigger.ActivationCondition.*;
-import org.photonvision.PhotonCamera;
+
 import com.pathplanner.lib.auto.MecanumAutoBuilder;
 import com.pathplanner.lib.auto.PIDConstants;
 import com.revrobotics.CANSparkMax;
@@ -34,7 +34,7 @@ import io.github.tigerbotics7125.robot.subsystem.Vision;
 import io.github.tigerbotics7125.tigerlib.CommandRobot;
 import io.github.tigerbotics7125.tigerlib.input.controller.XboxController;
 import io.github.tigerbotics7125.tigerlib.input.trigger.Trigger;
-import io.github.tigerbotics7125.tigerlib.util.JoystickUtil;
+import org.photonvision.PhotonCamera;
 
 public class Robot extends CommandRobot {
 
@@ -119,9 +119,16 @@ public class Robot extends CommandRobot {
 
         Auto auto = mAutoChooser.getSelected();
 
-        MecanumAutoBuilder autoBuilder = new MecanumAutoBuilder(mDrivetrain::getPose,
-                mDrivetrain::setPose, new PIDConstants(1, 0, 0), new PIDConstants(1, 0, 0),
-                mDrivetrain::setChassisSpeeds, auto.getEventMap(), true, mDrivetrain);
+        MecanumAutoBuilder autoBuilder =
+                new MecanumAutoBuilder(
+                        mDrivetrain::getPose,
+                        mDrivetrain::setPose,
+                        new PIDConstants(1, 0, 0),
+                        new PIDConstants(1, 0, 0),
+                        mDrivetrain::setChassisSpeeds,
+                        auto.getEventMap(),
+                        true,
+                        mDrivetrain);
 
         Command autoCmd = autoBuilder.fullAuto(auto.getPath());
         CommandScheduler.getInstance().schedule(autoCmd);
@@ -147,12 +154,21 @@ public class Robot extends CommandRobot {
     private void configTriggers() {
         // Driver
         mDriver.b().trigger(ON_RISING, Commands.runOnce(mDrivetrain::resetGyro));
-        mDriver.lb().trigger(ON_RISING,
-                Commands.runOnce(() -> mDrivetrain.setTurningMode(TurningMode.JOYSTICK_DIRECT)));
-        mDriver.rb().trigger(ON_RISING,
-                Commands.runOnce(() -> mDrivetrain.setTurningMode(TurningMode.JOYSTICK_ANGLE)));
-        mDriver.y().trigger(ON_RISING,
-                Commands.runOnce(() -> mDrivetrain.setTurningMode(TurningMode.HEADING_LOCK)));
+        mDriver.lb()
+                .trigger(
+                        ON_RISING,
+                        Commands.runOnce(
+                                () -> mDrivetrain.setTurningMode(TurningMode.JOYSTICK_DIRECT)));
+        mDriver.rb()
+                .trigger(
+                        ON_RISING,
+                        Commands.runOnce(
+                                () -> mDrivetrain.setTurningMode(TurningMode.JOYSTICK_ANGLE)));
+        mDriver.y()
+                .trigger(
+                        ON_RISING,
+                        Commands.runOnce(
+                                () -> mDrivetrain.setTurningMode(TurningMode.HEADING_LOCK)));
 
         mDriver.start().trigger(WHILE_HIGH, mAutoPilot.getAutoPilotCommand());
 
@@ -177,8 +193,13 @@ public class Robot extends CommandRobot {
     }
 
     private void configDefaultCommands() {
-        mDrivetrain.setDefaultCommand(mDrivetrain.driveCmd(mDriver.leftY()::get,
-                mDriver.leftX()::get, mDriver.rightY()::get, mDriver.rightX()::get, true));
+        mDrivetrain.setDefaultCommand(
+                mDrivetrain.driveCmd(
+                        mDriver.leftY()::get,
+                        mDriver.leftX()::get,
+                        mDriver.rightY()::get,
+                        mDriver.rightX()::get,
+                        true));
 
         mIntake.setDefaultCommand(Commands.run(mIntake::disable, mIntake));
         mSuperStruc.setDefaultCommand(Commands.run(mSuperStruc::disable, mSuperStruc));

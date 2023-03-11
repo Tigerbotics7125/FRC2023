@@ -91,10 +91,7 @@ public class OperatorInterface {
         // Add widget showing if autopilot is available.
         OI_TAB.addBoolean(
                         "Auto Pilot",
-                        () ->
-                                AutoPilot.isViable(
-                                        Robot.mDrivetrain.getPose(),
-                                        getAutoPilotPoint()))
+                        () -> AutoPilot.isViable(Robot.mDrivetrain.getPose(), getAutoPilotPoint()))
                 .withWidget(BuiltInWidgets.kBooleanBox)
                 .withPosition(1, 0)
                 .withSize(1, 1);
