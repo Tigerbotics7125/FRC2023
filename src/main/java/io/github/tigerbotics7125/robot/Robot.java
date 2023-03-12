@@ -184,7 +184,7 @@ public class Robot extends CommandRobot {
         mOperator.start().trigger(ON_RISING, OperatorInterface.toggleZone());
 
         mOperator.a().trigger(WHILE_HIGH, mIntake.intakeOut());
-        mOperator.y().trigger(WHILE_HIGH, mIntake.intakeAuto());
+        mOperator.y().trigger(ON_RISING, mIntake.intakeRoutine());
         mOperator.b().trigger(ON_RISING, mIntake.grippersOpen());
         mOperator.x().trigger(ON_RISING, mIntake.grippersClose());
 
@@ -200,8 +200,7 @@ public class Robot extends CommandRobot {
                         mDriver.rightY()::get,
                         mDriver.rightX()::get,
                         true));
-
-        mIntake.setDefaultCommand(Commands.run(mIntake::disable, mIntake));
+        mIntake.setDefaultCommand(mIntake.disable());
         mSuperStruc.setDefaultCommand(Commands.run(mSuperStruc::disable, mSuperStruc));
     }
 }
