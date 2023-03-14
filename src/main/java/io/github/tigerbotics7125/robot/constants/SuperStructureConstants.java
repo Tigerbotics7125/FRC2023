@@ -12,12 +12,12 @@ import edu.wpi.first.wpilibj.AnalogInput;
 public class SuperStructureConstants {
     public static final int ELEVATOR_HEIGHT_SENSOR_CHANNEL = 0;
     public static final AnalogInput ELEVATOR_HEIGHT_SENSOR_RAW = new AnalogInput(1);
-    public static final int ELEVATOR_MASTER_ID = 11;
-    public static final int ELEVATOR_SLAVE_ID = 12;
+    public static final int ELEV_MASTER_ID = 11;
+    public static final int ELEV_FOLLOWER_ID = 12;
 
-    public static final int ARM_MOTOR_ID = 21;
+    public static final int ARM_ID = 21;
 
-    public static final int WRIST_MOTOR_ID = 31;
+    public static final int WRIST_ID = 31;
 
     public static final MotorType MOTOR_TYPE = MotorType.kBrushless;
 
