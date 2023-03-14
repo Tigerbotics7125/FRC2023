@@ -41,16 +41,16 @@ public class Robot extends CommandRobot {
     public static XboxController mOperator;
     public static Trigger mRioUserButton;
 
+    // Components
+    public static PowerDistribution mPDH;
+    public static PneumaticHub mPH;
+    public static Compressor mCompressor;
+
     // Subsystems
     public static Vision mVision;
     public static Drivetrain mDrivetrain;
     public static Intake mIntake;
     public static SuperStructure mSuperStruc;
-
-    // Components
-    public static PowerDistribution mPDH;
-    public static PneumaticHub mPH;
-    public static Compressor mCompressor;
 
     // Commands
     public static AutoPilot mAutoPilot;
@@ -71,15 +71,6 @@ public class Robot extends CommandRobot {
         mRioUserButton = new Trigger(RobotController::getUserButton);
         System.out.printf(initStr, "Gamepads & Buttons");
 
-        mVision = new Vision();
-        System.out.printf(initStr, "Vision");
-        mDrivetrain = new Drivetrain();
-        System.out.printf(initStr, "Drivetrain");
-        mIntake = new Intake();
-        System.out.printf(initStr, "Intake");
-        mSuperStruc = new SuperStructure();
-        System.out.printf(initStr, "Super Structure");
-
         mPDH = new PowerDistribution();
         System.out.printf(initStr, "Power Distribution Hub");
 
@@ -89,6 +80,15 @@ public class Robot extends CommandRobot {
 
         mPH.makeCompressor();
         System.out.printf(initStr, "Compressor");
+
+        mVision = new Vision();
+        System.out.printf(initStr, "Vision");
+        mDrivetrain = new Drivetrain();
+        System.out.printf(initStr, "Drivetrain");
+        mIntake = new Intake();
+        System.out.printf(initStr, "Intake");
+        mSuperStruc = new SuperStructure();
+        System.out.printf(initStr, "Super Structure");
 
         mAutoPilot = new AutoPilot(mDrivetrain, OperatorInterface::getAutoPilotPoint);
         System.out.printf(initStr, "AutoPilot");
