@@ -6,21 +6,21 @@
 package io.github.tigerbotics7125.robot.subsystem;
 
 import static io.github.tigerbotics7125.robot.constants.IntakeConstants.*;
-import static io.github.tigerbotics7125.robot.constants.RobotConstants.PNEUMATICS_MODULE_TYPE;
 
 import com.revrobotics.CANSparkMax;
 import com.revrobotics.CANSparkMax.ControlType;
 import com.revrobotics.CANSparkMaxLowLevel.MotorType;
 import com.revrobotics.REVPhysicsSim;
 import com.revrobotics.SparkMaxPIDController;
+
 import edu.wpi.first.math.filter.Debouncer;
 import edu.wpi.first.math.filter.LinearFilter;
 import edu.wpi.first.wpilibj.DoubleSolenoid;
+import edu.wpi.first.wpilibj.Timer;
 import edu.wpi.first.wpilibj.shuffleboard.Shuffleboard;
 import edu.wpi.first.wpilibj.shuffleboard.ShuffleboardTab;
 import edu.wpi.first.wpilibj2.command.Command;
 import edu.wpi.first.wpilibj2.command.CommandBase;
-import edu.wpi.first.wpilibj2.command.Commands;
 import edu.wpi.first.wpilibj2.command.SubsystemBase;
 import io.github.tigerbotics7125.robot.Robot;
 import io.github.tigerbotics7125.robot.constants.RobotConstants;
@@ -33,7 +33,7 @@ public class Intake extends SubsystemBase {
 
     private final DoubleSolenoid mSolenoid;
 
-    private final LinearFilter mCurrentFilter = LinearFilter.movingAverage(10);
+    private final LinearFilter mCurrentFilter;
 
     private final ShuffleboardTab mSBTab;
 
@@ -41,7 +41,7 @@ public class Intake extends SubsystemBase {
 
     public Intake() {
         mMaster = new CANSparkMax(MASTER_ID, MotorType.kBrushless);
-        mFollower = new CANSparkMax(SLAVE_ID, MotorType.kBrushless);
+        mFollower = new CANSparkMax(FOLLOWER_ID, MotorType.kBrushless);
         configureMotor(mMaster);
         configureMotor(mFollower);
 
@@ -49,7 +49,9 @@ public class Intake extends SubsystemBase {
 
         mController = mMaster.getPIDController();
 
-        mSolenoid = new DoubleSolenoid(PNEUMATICS_MODULE_TYPE, FORWARDS_CHANNEL, REVERSE_CHANNEL);
+        mSolenoid = Robot.mPH.makeDoubleSolenoid(FORWARDS_CHANNEL, REVERSE_CHANNEL);
+
+        mCurrentFilter = LinearFilter.movingAverage(CURRENT_AVG_SAMPLES);
 
         mSBTab = Shuffleboard.getTab("Intake");
         mSBTab.addBoolean("Grippers", () -> getGrippers());
@@ -71,7 +73,7 @@ public class Intake extends SubsystemBase {
         motor.restoreFactoryDefaults();
 
         motor.setIdleMode(IDLE_MODE);
-        motor.setSmartCurrentLimit(STALL_CURRENT_LIMIT_AMPS, FREE_SPEED_CURRENT_LIMIT_AMPS, 0);
+        motor.setSmartCurrentLimit(STALL_CURRENT_LIMIT_AMPS);
         motor.enableVoltageCompensation(RobotConstants.NOMINAL_VOLTAGE);
 
         motor.burnFlash();
@@ -79,6 +81,7 @@ public class Intake extends SubsystemBase {
         if (Robot.isSimulation())
             REVPhysicsSim.getInstance()
                     .addSparkMax(motor, STALL_TORQUE_NEWTON_METERS, FREE_SPEED_RPM);
+        Timer.delay(.25);
     }
 
     /** @return The average and filtered current of the motors. */
@@ -93,12 +96,11 @@ public class Intake extends SubsystemBase {
 
     /** @return A Command which will disable all motor output. */
     public CommandBase disable() {
-        return runOnce(
+        return run(
                         () -> {
                             mMaster.disable();
                             mFollower.disable();
                         })
-                .andThen(Commands.none().repeatedly())
                 .withName("Disabled");
     }
 
@@ -157,17 +159,18 @@ public class Intake extends SubsystemBase {
      *     then close and hold it.
      */
     public CommandBase intakeRoutine() {
-        Debouncer debounce = new Debouncer(1, Debouncer.DebounceType.kRising);
+        Debouncer debounce = new Debouncer(MIN_DETECT_TIME, Debouncer.DebounceType.kRising);
         return runOnce(() -> debounce.calculate(false))
                 .andThen(grippersOpen())
                 .andThen(intakeIn())
-                .until(() -> debounce.calculate(getCurrent() >= INTAKE_STALL_CURRENT))
+                .until(() -> debounce.calculate(getCurrent() >= MIN_DETECT_CURRENT))
                 .finallyDo((interrupted) -> holdRoutine().schedule())
                 .withName("Intake Routine");
     }
 
     @Override
     public void periodic() {
+        // Update current average.
         double rawMaster = mMaster.getOutputCurrent();
         double rawFollower = mFollower.getOutputCurrent();
         double rawAverage = (rawMaster + rawFollower) / 2D;

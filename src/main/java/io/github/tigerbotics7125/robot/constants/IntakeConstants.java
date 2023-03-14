@@ -36,7 +36,7 @@ public class IntakeConstants {
     public static final double INTAKE_HOLD_SPEED = .05;
 
     // Auto detect values.
-    public static final double CURRENT_AVG_SAMPLES = 7;
+    public static final int CURRENT_AVG_SAMPLES = 7;
     public static final double MIN_DETECT_CURRENT = 7;
     public static final double MIN_DETECT_TIME = .3;
 
