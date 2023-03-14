@@ -7,16 +7,12 @@ package io.github.tigerbotics7125.robot.subsystem;
 
 import static io.github.tigerbotics7125.robot.constants.SuperStructureConstants.*;
 
-import java.util.function.BooleanSupplier;
-import java.util.function.DoubleSupplier;
-
 import com.revrobotics.CANSparkMax;
 import com.revrobotics.CANSparkMax.ControlType;
 import com.revrobotics.CANSparkMax.IdleMode;
 import com.revrobotics.CANSparkMax.SoftLimitDirection;
 import com.revrobotics.REVPhysicsSim;
 import com.revrobotics.SparkMaxPIDController;
-
 import edu.wpi.first.math.filter.Debouncer;
 import edu.wpi.first.math.filter.Debouncer.DebounceType;
 import edu.wpi.first.math.system.plant.DCMotor;
@@ -34,6 +30,8 @@ import io.github.tigerbotics7125.lib.Analog_873M_UltraSonic;
 import io.github.tigerbotics7125.lib.Analog_873M_UltraSonic.SensorType;
 import io.github.tigerbotics7125.robot.Robot;
 import io.github.tigerbotics7125.robot.constants.RobotConstants;
+import java.util.function.BooleanSupplier;
+import java.util.function.DoubleSupplier;
 
 public class SuperStructure extends SubsystemBase {
 
@@ -86,10 +84,8 @@ public class SuperStructure extends SubsystemBase {
 
         var tab = Shuffleboard.getTab("Super Structure");
         tab.addDouble("Elevator%", mElevatorDistanceSensor::getPercentage);
-        tab.addDouble(
-                "forwardLimit", () -> mElevMaster.getSoftLimit(SoftLimitDirection.kForward));
-        tab.addDouble(
-                "reverseLimit", () -> mElevMaster.getSoftLimit(SoftLimitDirection.kReverse));
+        tab.addDouble("forwardLimit", () -> mElevMaster.getSoftLimit(SoftLimitDirection.kForward));
+        tab.addDouble("reverseLimit", () -> mElevMaster.getSoftLimit(SoftLimitDirection.kReverse));
 
         if (Robot.isSimulation()) {
             tab.add("superstruc", mMech);
@@ -172,11 +168,12 @@ public class SuperStructure extends SubsystemBase {
     }
 
     public CommandBase disable() {
-        return run( () -> {
-            mElevMaster.disable();
-        mArm.disable();
-        mWrist.disable();
-        });
+        return run(
+                () -> {
+                    mElevMaster.disable();
+                    mArm.disable();
+                    mWrist.disable();
+                });
     }
 
     public CommandBase elevatorUp() {
@@ -192,41 +189,59 @@ public class SuperStructure extends SubsystemBase {
         Debouncer slowDeb = new Debouncer(.2, DebounceType.kRising);
         double fastHomeStallAmps = 5;
         double slowHomeStallAmps = 7;
-        DoubleSupplier avgCurrent = () -> (mElevMaster.getOutputCurrent() + mElevFollower.getOutputCurrent()) / 2D;
+        DoubleSupplier avgCurrent =
+                () -> (mElevMaster.getOutputCurrent() + mElevFollower.getOutputCurrent()) / 2D;
 
-        CommandBase clearDebouncer = runOnce(() -> {
-            fastDeb.calculate(false);
-            slowDeb.calculate(false);
-        });
-        BooleanSupplier fastStallDetect = () -> fastDeb.calculate(avgCurrent.getAsDouble() > fastHomeStallAmps);
-        BooleanSupplier slowStallDetect = () -> slowDeb.calculate(avgCurrent.getAsDouble() > slowHomeStallAmps);
+        CommandBase clearDebouncer =
+                runOnce(
+                        () -> {
+                            fastDeb.calculate(false);
+                            slowDeb.calculate(false);
+                        });
+        BooleanSupplier fastStallDetect =
+                () -> fastDeb.calculate(avgCurrent.getAsDouble() > fastHomeStallAmps);
+        BooleanSupplier slowStallDetect =
+                () -> slowDeb.calculate(avgCurrent.getAsDouble() > slowHomeStallAmps);
 
         CommandBase fastDown = runElevator(-.5, ControlType.kDutyCycle);
         CommandBase slowDown = runElevator(-.1, ControlType.kDutyCycle);
         CommandBase raiseSetDistance = runElevator(1, ControlType.kPosition);
 
-        CommandBase setHome = runOnce(() -> {
-            mElevMaster.getEncoder().setPosition(0);
-            mElevFollower.getEncoder().setPosition(0);
-        });
+        CommandBase setHome =
+                runOnce(
+                        () -> {
+                            mElevMaster.getEncoder().setPosition(0);
+                            mElevFollower.getEncoder().setPosition(0);
+                        });
 
-        CommandBase fastSequence = clearDebouncer
-                .andThen(fastDown.until(fastStallDetect)).andThen(setHome);
-        CommandBase slowSequence = clearDebouncer
-                .andThen(slowDown.until(slowStallDetect)).andThen(setHome);
+        CommandBase fastSequence =
+                clearDebouncer.andThen(fastDown.until(fastStallDetect)).andThen(setHome);
+        CommandBase slowSequence =
+                clearDebouncer.andThen(slowDown.until(slowStallDetect)).andThen(setHome);
 
-        return fastSequence.andThen(raiseSetDistance).andThen(slowSequence).andThen(runOnce(() -> mElevHasBeenHomed = true));
+        return fastSequence
+                .andThen(raiseSetDistance)
+                .andThen(slowSequence)
+                .andThen(runOnce(() -> mElevHasBeenHomed = true));
     }
 
     public CommandBase homeIfNeeded() {
-        if (!mElevHasBeenHomed)
-            return homeElev();
-        else
-            return Commands.none();
+        if (!mElevHasBeenHomed) return homeElev();
+        else return Commands.none();
     }
 
     public CommandBase elevatorPosition(double position) {
-        return homeIfNeeded().andThen(runElevator(position, ControlType.kPosition).until(() -> Math.abs(mElevMaster.getEncoder().getPosition() - position) < .5));
+        return homeIfNeeded()
+                .andThen(
+                        runElevator(position, ControlType.kPosition)
+                                .until(
+                                        () ->
+                                                Math.abs(
+                                                                mElevMaster
+                                                                                .getEncoder()
+                                                                                .getPosition()
+                                                                        - position)
+                                                        < .5));
     }
 
     @Override

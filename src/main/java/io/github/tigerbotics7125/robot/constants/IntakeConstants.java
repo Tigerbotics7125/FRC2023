@@ -43,5 +43,4 @@ public class IntakeConstants {
     // Pneumatic values.
     public static final DoubleSolenoid.Value GRIP_DIRECTION = DoubleSolenoid.Value.kForward;
     public static final DoubleSolenoid.Value RELEASE_DIRECTION = DoubleSolenoid.Value.kReverse;
-
 }

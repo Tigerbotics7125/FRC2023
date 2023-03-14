@@ -1,31 +1,32 @@
+/*
+ * Copyright (c) 2023 Tigerbotics and it's members. All rights reserved.
+ * This work is licensed under the terms of the GNU GPLv3 license
+ * found in the root directory of this project.
+ */
 package io.github.tigerbotics7125.lib;
 
 import static edu.wpi.first.util.ErrorMessages.requireNonNullParam;
-
-import java.util.function.Supplier;
 
 import edu.wpi.first.util.sendable.SendableBuilder;
 import edu.wpi.first.wpilibj2.command.Command;
 import edu.wpi.first.wpilibj2.command.CommandBase;
 import edu.wpi.first.wpilibj2.command.Commands;
 import edu.wpi.first.wpilibj2.command.Subsystem;
+import java.util.function.Supplier;
 
 /**
- * Runs the given command when this command is initialized, and ends when it
- * ends. Useful for
- * performing runtime tasks before creating a new command.
- * If this command is interrupted, it will cancel the command.
+ * Runs the given command when this command is initialized, and ends when it ends. Useful for
+ * performing runtime tasks before creating a new command. If this command is interrupted, it will
+ * cancel the command.
  *
- * <p>
- * This class is provided by the NewCommands VendorDep
+ * <p>This class is provided by the NewCommands VendorDep
  */
 public class DeferredCommand extends CommandBase {
     private final Supplier<Command> m_cmdSupplier;
     private Command m_command = Commands.print("[DeferredCommand] Supplied command was null!");
 
     /**
-     * Creates a new DeferredCommand that runs the supplied command when
-     * initialized, and ends when
+     * Creates a new DeferredCommand that runs the supplied command when initialized, and ends when
      * it is no longer scheduled. Useful for lazily creating commands at runtime.
      *
      * @param supplier the command supplier

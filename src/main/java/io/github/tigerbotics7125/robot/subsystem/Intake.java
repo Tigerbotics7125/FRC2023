@@ -12,7 +12,6 @@ import com.revrobotics.CANSparkMax.ControlType;
 import com.revrobotics.CANSparkMaxLowLevel.MotorType;
 import com.revrobotics.REVPhysicsSim;
 import com.revrobotics.SparkMaxPIDController;
-
 import edu.wpi.first.math.filter.Debouncer;
 import edu.wpi.first.math.filter.LinearFilter;
 import edu.wpi.first.wpilibj.DoubleSolenoid;
@@ -96,11 +95,10 @@ public class Intake extends SubsystemBase {
 
     /** @return A Command which will disable all motor output. */
     public CommandBase disable() {
-        return run(
-                        () -> {
-                            mMaster.disable();
-                            mFollower.disable();
-                        })
+        return run(() -> {
+                    mMaster.disable();
+                    mFollower.disable();
+                })
                 .withName("Disabled");
     }
 

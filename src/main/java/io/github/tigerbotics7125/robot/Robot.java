@@ -12,7 +12,6 @@ import com.pathplanner.lib.auto.MecanumAutoBuilder;
 import com.pathplanner.lib.auto.PIDConstants;
 import com.revrobotics.CANSparkMax;
 import com.revrobotics.REVPhysicsSim;
-
 import edu.wpi.first.wpilibj.*;
 import edu.wpi.first.wpilibj.shuffleboard.Shuffleboard;
 import edu.wpi.first.wpilibj.smartdashboard.SendableChooser;
@@ -23,7 +22,6 @@ import edu.wpi.first.wpilibj2.command.Commands;
 import io.github.tigerbotics7125.robot.auto.Auto;
 import io.github.tigerbotics7125.robot.auto.CenterDelayMobility;
 import io.github.tigerbotics7125.robot.auto.None;
-import io.github.tigerbotics7125.robot.constants.RobotConstants;
 import io.github.tigerbotics7125.robot.subsystem.Drivetrain;
 import io.github.tigerbotics7125.robot.subsystem.Drivetrain.TurningMode;
 import io.github.tigerbotics7125.robot.subsystem.Intake;
@@ -177,7 +175,6 @@ public class Robot extends CommandRobot {
                                 () -> mDrivetrain.setTurningMode(TurningMode.HEADING_LOCK)));
 
         mDriver.start().trigger(WHILE_HIGH, mAutoPilot.getAutoPilotCommand());
-
 
         // Operator
         mOperator.pov.left().trigger(ON_RISING, OperatorInterface.selectLeft());
