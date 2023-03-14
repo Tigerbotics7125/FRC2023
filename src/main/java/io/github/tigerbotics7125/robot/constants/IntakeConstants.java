@@ -12,31 +12,36 @@ import edu.wpi.first.wpilibj.DoubleSolenoid.Value;
 
 public class IntakeConstants {
 
-    // Default Characteristics
+    // Default Values.
     public static final DoubleSolenoid.Value DEFAULT_PNEUMATIC_STATE = Value.kForward;
 
-    // IDs
+    // IDs.
     public static final int MASTER_ID = 41;
-    public static final int SLAVE_ID = 42;
+    public static final int FOLLOWER_ID = 42;
     public static final int FORWARDS_CHANNEL = 0;
     public static final int REVERSE_CHANNEL = 1;
 
-    // Characteristics
+    // Characteristics.
     public static final float STALL_TORQUE_NEWTON_METERS = 19.40175484f;
     public static final float FREE_SPEED_RPM = 550.0f;
 
-    // Motor values
+    // Motor values.
     public static final MotorType MOTOR_TYPE = MotorType.kBrushless;
     public static final IdleMode IDLE_MODE = IdleMode.kCoast;
     public static final int STALL_CURRENT_LIMIT_AMPS = 20;
-    public static final int FREE_SPEED_CURRENT_LIMIT_AMPS = 4;
 
-    public static final double INTAKE_IN_SPEED = 1D;
+    // Speed values.
+    public static final double INTAKE_IN_SPEED = .75D;
     public static final double INTAKE_OUT_SPEED = -1D;
     public static final double INTAKE_HOLD_SPEED = .05;
-    public static final double INTAKE_STALL_CURRENT = 15;
 
-    // Pneumatic values
+    // Auto detect values.
+    public static final double CURRENT_AVG_SAMPLES = 7;
+    public static final double MIN_DETECT_CURRENT = 7;
+    public static final double MIN_DETECT_TIME = .3;
+
+    // Pneumatic values.
     public static final DoubleSolenoid.Value GRIP_DIRECTION = DoubleSolenoid.Value.kForward;
     public static final DoubleSolenoid.Value RELEASE_DIRECTION = DoubleSolenoid.Value.kReverse;
+
 }
