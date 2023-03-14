@@ -37,4 +37,8 @@ public class Analog_873M_UltraSonic {
             default -> 0.0;
         };
     }
+
+    public double getRawVoltage() {
+        return mInput.getVoltage();
+    }
 }
