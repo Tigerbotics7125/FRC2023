@@ -12,10 +12,8 @@ import com.pathplanner.lib.auto.MecanumAutoBuilder;
 import com.pathplanner.lib.auto.PIDConstants;
 import com.revrobotics.CANSparkMax;
 import com.revrobotics.REVPhysicsSim;
-import edu.wpi.first.wpilibj.Compressor;
-import edu.wpi.first.wpilibj.DriverStation;
-import edu.wpi.first.wpilibj.PowerDistribution;
-import edu.wpi.first.wpilibj.RobotController;
+
+import edu.wpi.first.wpilibj.*;
 import edu.wpi.first.wpilibj.shuffleboard.Shuffleboard;
 import edu.wpi.first.wpilibj.smartdashboard.SendableChooser;
 import edu.wpi.first.wpilibj.smartdashboard.SmartDashboard;
@@ -50,8 +48,9 @@ public class Robot extends CommandRobot {
     public static SuperStructure mSuperStruc;
 
     // Components
-    public static PowerDistribution mPDH = new PowerDistribution();
-    public static Compressor mCompressor = new Compressor(RobotConstants.PNEUMATICS_MODULE_TYPE);
+    public static PowerDistribution mPDH;
+    public static PneumaticHub mPH;
+    public static Compressor mCompressor;
 
     // Commands
     public static AutoPilot mAutoPilot;
@@ -81,7 +80,14 @@ public class Robot extends CommandRobot {
         mSuperStruc = new SuperStructure();
         System.out.printf(initStr, "Super Structure");
 
-        mCompressor.enableDigital();
+        mPDH = new PowerDistribution();
+        System.out.printf(initStr, "Power Distribution Hub");
+
+        mPH = new PneumaticHub();
+        mPH.enableCompressorDigital();
+        System.out.printf(initStr, "Pneumatic Hub");
+
+        mPH.makeCompressor();
         System.out.printf(initStr, "Compressor");
 
         mAutoPilot = new AutoPilot(mDrivetrain, OperatorInterface::getAutoPilotPoint);
@@ -171,6 +177,7 @@ public class Robot extends CommandRobot {
                                 () -> mDrivetrain.setTurningMode(TurningMode.HEADING_LOCK)));
 
         mDriver.start().trigger(WHILE_HIGH, mAutoPilot.getAutoPilotCommand());
+
 
         // Operator
         mOperator.pov.left().trigger(ON_RISING, OperatorInterface.selectLeft());
