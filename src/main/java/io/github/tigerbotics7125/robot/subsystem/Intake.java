@@ -24,6 +24,12 @@ import edu.wpi.first.wpilibj2.command.SubsystemBase;
 import io.github.tigerbotics7125.robot.Robot;
 import io.github.tigerbotics7125.robot.constants.RobotConstants;
 
+/**
+ * This class controls the intake of the robot. It features pneumatically activated grippers, and
+ * motorized intake wheels.
+ *
+ * @author Jeffrey Morris | Tigerbotics 7125
+ */
 public class Intake extends SubsystemBase {
     private final CANSparkMax mMaster;
     private final CANSparkMax mFollower;
@@ -102,7 +108,7 @@ public class Intake extends SubsystemBase {
                 .withName("Disabled");
     }
 
-    // PRIVATE raw setter commands.
+    // ! PRIVATE INTERNAL COMMANDS
 
     /**
      * @param grip Whether to grip or not grip the grippers.
@@ -120,7 +126,7 @@ public class Intake extends SubsystemBase {
         return run(() -> mController.setReference(dutyCycle, ControlType.kDutyCycle));
     }
 
-    // PUBLIC commands
+    // ! PUBLIC EXTERNAL COMMANDS
 
     /** @return A Command which will open the gripper. */
     public CommandBase grippersOpen() {

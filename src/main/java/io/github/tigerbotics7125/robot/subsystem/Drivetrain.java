@@ -7,7 +7,7 @@ package io.github.tigerbotics7125.robot.subsystem;
 
 import static io.github.tigerbotics7125.robot.constants.DrivetrainConstants.*;
 import static io.github.tigerbotics7125.robot.constants.RobotConstants.NOMINAL_VOLTAGE;
-import static io.github.tigerbotics7125.tigerlib.input.trigger.Trigger.ActivationCondition.*;
+import static io.github.tigerbotics7125.tigerlib.input.trigger.Trigger.ActivationCondition.ON_RISING;
 
 import com.kauailabs.navx.frc.AHRS;
 import com.revrobotics.CANSparkMax;
@@ -26,7 +26,6 @@ import edu.wpi.first.math.geometry.Pose2d;
 import edu.wpi.first.math.geometry.Rotation2d;
 import edu.wpi.first.math.geometry.Translation2d;
 import edu.wpi.first.math.kinematics.ChassisSpeeds;
-import edu.wpi.first.math.kinematics.MecanumDriveKinematics;
 import edu.wpi.first.math.kinematics.MecanumDriveWheelPositions;
 import edu.wpi.first.math.kinematics.MecanumDriveWheelSpeeds;
 import edu.wpi.first.math.util.Units;
@@ -36,13 +35,15 @@ import edu.wpi.first.wpilibj.Timer;
 import edu.wpi.first.wpilibj.drive.MecanumDrive;
 import edu.wpi.first.wpilibj.shuffleboard.Shuffleboard;
 import edu.wpi.first.wpilibj.shuffleboard.ShuffleboardTab;
-import edu.wpi.first.wpilibj2.command.Command;
+import edu.wpi.first.wpilibj2.command.CommandBase;
 import edu.wpi.first.wpilibj2.command.Commands;
 import edu.wpi.first.wpilibj2.command.SubsystemBase;
+import io.github.tigerbotics7125.lib.AllianceFlipUtil;
 import io.github.tigerbotics7125.robot.Robot;
 import io.github.tigerbotics7125.tigerlib.input.trigger.Trigger;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.function.BooleanSupplier;
 import java.util.function.DoubleSupplier;
 import org.photonvision.EstimatedRobotPose;
 
@@ -74,7 +75,6 @@ public class Drivetrain extends SubsystemBase {
     private final AHRS mNavx;
 
     // odometry
-    private final MecanumDriveKinematics mKinematics;
     private final MecanumDrivePoseEstimator mPoseEstimator;
 
     // pid control
@@ -105,11 +105,11 @@ public class Drivetrain extends SubsystemBase {
         mMotors.forEach(this::configureMotor);
 
         mNavx = new AHRS(SerialPort.Port.kMXP);
+        mNavx.enableLogging(false);
 
-        mKinematics = KINEMATICS;
         mPoseEstimator =
                 new MecanumDrivePoseEstimator(
-                        mKinematics, getHeading(), getWheelPositions(), new Pose2d());
+                        KINEMATICS, getHeading(), getWheelPositions(), new Pose2d());
 
         new Trigger(RobotState::isDisabled)
                 .trigger(
@@ -126,10 +126,10 @@ public class Drivetrain extends SubsystemBase {
 
         // Setup dashboard values.
         ShuffleboardTab driveTab = Shuffleboard.getTab("drive");
-        driveTab.addNumber("Current Heading", () -> getHeading().getRadians());
-        driveTab.addNumber("Desired Heading", () -> mDesiredHeading.getRadians());
-        driveTab.addBoolean("Field Oriented (bool)", () -> mFieldOriented);
-        driveTab.addString("Turning Mode (str)", () -> mTurningMode.name());
+        driveTab.addNumber("Current Heading", () -> getHeading().getDegrees());
+        driveTab.addNumber("Desired Heading", () -> mDesiredHeading.getDegrees());
+        driveTab.addBoolean("Field Oriented", () -> mFieldOriented);
+        driveTab.addString("Turning Mode", () -> mTurningMode.name());
     }
 
     /**
@@ -182,7 +182,7 @@ public class Drivetrain extends SubsystemBase {
         // update sim because its wack sometimes.
         var deg =
                 Units.radiansToDegrees(
-                                mKinematics.toChassisSpeeds(getWheelSpeeds()).omegaRadiansPerSecond)
+                                KINEMATICS.toChassisSpeeds(getWheelSpeeds()).omegaRadiansPerSecond)
                         * .02; // 20ms loop time
 
         // https://pdocs.kauailabs.com/navx-mxp/software/roborio-libraries/java
@@ -210,44 +210,7 @@ public class Drivetrain extends SubsystemBase {
         }
     }
 
-    /** Disables all motor output. */
-    public void disable() {
-        mMotors.forEach(CANSparkMax::disable);
-    }
-
-    public void addVisionEstimate(EstimatedRobotPose pose) {
-        mPoseEstimator.addVisionMeasurement(pose.estimatedPose.toPose2d(), pose.timestampSeconds);
-    }
-
-    /**
-     * The rotation axes are the same orientation as the translational ones, pretend you are looking
-     * straight down from above the robot, left-right is the y axis, and front-back is the x axis.
-     *
-     * @param x X axis input, forwards is positive.
-     * @param y Y axis input, left is positive.
-     * @param z_x Rotation x input, forwards is positive. Used only for {@link
-     *     TurningMode#JOYSTICK_ANGLE}.
-     * @param z_y Rotation y input, left is positive. Also used for {@link
-     *     TurningMode#JOYSTICK_DIRECT}, where positive correlates to CCW rotation.
-     * @param openLoop Whether to use open or closed loop control.
-     * @return A Command which uses the given suppliers and drives the drivetrain.
-     */
-    public Command driveCmd(
-            DoubleSupplier x,
-            DoubleSupplier y,
-            DoubleSupplier z_x,
-            DoubleSupplier z_y,
-            boolean openLoop) {
-        return Commands.run(
-                () ->
-                        this.drive(
-                                x.getAsDouble(),
-                                y.getAsDouble(),
-                                z_x.getAsDouble(),
-                                z_y.getAsDouble(),
-                                openLoop),
-                this);
-    }
+    // ! FUNCTIONAL METHODS
 
     /**
      * The rotation axes are the same orientation as the translational ones, pretend you are looking
@@ -297,93 +260,24 @@ public class Drivetrain extends SubsystemBase {
 
         // set outputs
         if (openLoop) {
-            setWheelSpeeds(MecanumDrive.driveCartesianIK(input.getX(), input.getY(), thetaSpeed));
+            setOpenLoopSpeeds(
+                    MecanumDrive.driveCartesianIK(input.getX(), input.getY(), thetaSpeed));
 
         } else {
             setChassisSpeeds(new ChassisSpeeds(input.getX(), input.getY(), thetaSpeed));
         }
     }
 
-    //
-    // SETTERS
-    //
-
-    /** @param turningMode {@link TurningMode} to set the drivetrain to. */
-    public void setTurningMode(TurningMode turningMode) {
-        mTurningMode = turningMode;
+    public void addVisionEstimate(EstimatedRobotPose estPose) {
+        Pose2d pose = AllianceFlipUtil.apply(estPose.estimatedPose.toPose2d());
+        mPoseEstimator.addVisionMeasurement(pose, estPose.timestampSeconds);
     }
 
-    /** @param fieldOriented Whether to drive field oriented or robot oriented. */
-    public void setFieldOriented(boolean fieldOriented) {
-        mFieldOriented = fieldOriented;
+    // ! GETTERS
+
+    public TurningMode getTurningMode() {
+        return mTurningMode;
     }
-
-    /** @param idleMode The idle mode to set the motors to. */
-    public void setIdleMode(CANSparkMax.IdleMode idleMode) {
-        mMotors.forEach((motor) -> motor.setIdleMode(idleMode));
-    }
-
-    /**
-     * Tell the drivetrain where it is, this does not feed it an estimation, it blatently says, you
-     * are here rn.
-     *
-     * @param pose The pose.
-     * @param heading The heading.
-     */
-    public void setPose(Pose2d pose) {
-        mPoseEstimator.resetPosition(getHeading(), getWheelPositions(), pose);
-    }
-
-    public void setChassisSpeeds(ChassisSpeeds targetSpeeds) {
-        setWheelSpeeds(mKinematics.toWheelSpeeds(targetSpeeds));
-    }
-
-    /**
-     * Used for open loop driving.
-     *
-     * @param speeds The wheel speeds in %on to have the robot drive by.
-     */
-    public void setWheelSpeeds(MecanumDrive.WheelSpeeds speeds) {
-        List<Double> duties =
-                List.of(speeds.frontLeft, speeds.frontRight, speeds.rearLeft, speeds.rearRight);
-
-        for (int i = 0; i < 4; i++) {
-            mPIDControllers.get(i).setReference(duties.get(i), ControlType.kDutyCycle);
-        }
-    }
-
-    /** @param targetSpeeds The wheel speeds to have the robot attempt to achieve. */
-    public void setWheelSpeeds(MecanumDriveWheelSpeeds targetSpeeds) {
-        // Ensure desired motor speeds are within acceptable values.
-        targetSpeeds.desaturate(MAX_LINEAR_VELOCITY_MPS);
-
-        double flTarg = targetSpeeds.frontLeftMetersPerSecond;
-        double frTarg = targetSpeeds.frontRightMetersPerSecond;
-        double rlTarg = targetSpeeds.rearLeftMetersPerSecond;
-        double rrTarg = targetSpeeds.rearRightMetersPerSecond;
-
-        List<Double> targets = List.of(flTarg, frTarg, rlTarg, rrTarg);
-
-        for (int i = 0; i < 4; i++) {
-            mPIDControllers
-                    .get(i)
-                    .setReference(
-                            targets.get(i),
-                            ControlType.kVelocity,
-                            0,
-                            mFF.calculate(targets.get(i)),
-                            ArbFFUnits.kVoltage);
-        }
-    }
-
-    /** Reset heading to 0. */
-    public void resetGyro() {
-        mNavx.reset();
-    }
-
-    //
-    // GETTERS
-    //
 
     /** @return If the robot is driving field oriented. */
     public boolean isFieldOriented() {
@@ -401,7 +295,7 @@ public class Drivetrain extends SubsystemBase {
     }
 
     public ChassisSpeeds getChassisSpeeds() {
-        return mKinematics.toChassisSpeeds(getWheelSpeeds());
+        return KINEMATICS.toChassisSpeeds(getWheelSpeeds());
     }
 
     /** @return The current wheel speeds. */
@@ -425,14 +319,6 @@ public class Drivetrain extends SubsystemBase {
         return new MecanumDriveWheelPositions(fl, fr, rl, rr);
     }
 
-    public TurningMode getTurningMode() {
-        return mTurningMode;
-    }
-
-    public MecanumDriveKinematics getKinematics() {
-        return mKinematics;
-    }
-
     public List<CANSparkMax> getLeftMotors() {
         return List.of(mMotors.get(0), mMotors.get(2));
     }
@@ -443,5 +329,127 @@ public class Drivetrain extends SubsystemBase {
 
     public double getGyroRate() {
         return -mNavx.getRate();
+    }
+
+    // ! SETTERS
+
+    /** @param turningMode {@link TurningMode} to set the drivetrain to. */
+    public void setTurningMode(TurningMode turningMode) {
+        mTurningMode = turningMode;
+    }
+
+    /** @param fieldOriented Whether to drive field oriented or robot oriented. */
+    public void setFieldOriented(boolean fieldOriented) {
+        mFieldOriented = fieldOriented;
+    }
+
+    /** @param idleMode The idle mode to set the motors to. */
+    public void setIdleMode(CANSparkMax.IdleMode idleMode) {
+        mMotors.forEach((motor) -> motor.setIdleMode(idleMode));
+    }
+
+    /**
+     * @param pose The pose.
+     * @param heading The heading.
+     */
+    public void resetOdometry(Pose2d pose) {
+        mPoseEstimator.resetPosition(getHeading(), getWheelPositions(), pose);
+    }
+
+    /** Reset heading to 0. */
+    public void resetGyro() {
+        mNavx.reset();
+    }
+
+    /** @param targetSpeeds The chassis speed to try to achieve. */
+    public void setChassisSpeeds(ChassisSpeeds targetSpeeds) {
+        setClosedLoopSpeeds(KINEMATICS.toWheelSpeeds(targetSpeeds));
+    }
+
+    /**
+     * Used for open loop driving.
+     *
+     * @param speeds The wheel speeds in duty cycle to have the robot drive by.
+     */
+    public void setOpenLoopSpeeds(MecanumDrive.WheelSpeeds speeds) {
+        List<Double> duties =
+                List.of(speeds.frontLeft, speeds.frontRight, speeds.rearLeft, speeds.rearRight);
+
+        for (int i = 0; i < 4; i++) {
+            mPIDControllers.get(i).setReference(duties.get(i), ControlType.kDutyCycle);
+        }
+    }
+
+    /** @param targetSpeeds The wheel speeds to have the robot attempt to achieve. */
+    public void setClosedLoopSpeeds(MecanumDriveWheelSpeeds targetSpeeds) {
+        // Ensure desired motor speeds are within acceptable values.
+        targetSpeeds.desaturate(MAX_LINEAR_VELOCITY_MPS);
+
+        List<Double> targetWheelSpeeds =
+                List.of(
+                        targetSpeeds.frontLeftMetersPerSecond,
+                        targetSpeeds.frontRightMetersPerSecond,
+                        targetSpeeds.rearLeftMetersPerSecond,
+                        targetSpeeds.rearRightMetersPerSecond);
+
+        for (int i = 0; i < 4; i++) {
+            mPIDControllers
+                    .get(i)
+                    .setReference(
+                            targetWheelSpeeds.get(i),
+                            ControlType.kVelocity,
+                            0,
+                            mFF.calculate(targetWheelSpeeds.get(i)),
+                            ArbFFUnits.kVoltage);
+        }
+    }
+
+    // ! PUBLIC EXTERNAL COMMANDS
+
+    /** @return A Command which disables all motor output. */
+    public CommandBase disable() {
+        return runOnce(() -> mMotors.forEach(CANSparkMax::disable));
+    }
+
+    /**
+     * @param x X axis input, forwards is positive.
+     * @param y Y axis input, left is positive.
+     * @param z_x Rotation x input, forwards is positive. Used only for {@link
+     *     TurningMode#JOYSTICK_ANGLE}.
+     * @param z_y Rotation y input, left is positive. Also used for {@link
+     *     TurningMode#JOYSTICK_DIRECT}, where positive correlates to CCW rotation.
+     * @param openLoop Whether to use open or closed loop control.
+     * @return A Command which will drive the robot.
+     * @see {@link Drivetrain#drive(double, double, double, double, boolean)}.
+     */
+    public CommandBase drive(
+            DoubleSupplier x,
+            DoubleSupplier y,
+            DoubleSupplier z_x,
+            DoubleSupplier z_y,
+            BooleanSupplier openLoop) {
+        return run(
+                () ->
+                        drive(
+                                x.getAsDouble(),
+                                y.getAsDouble(),
+                                z_x.getAsDouble(),
+                                z_y.getAsDouble(),
+                                openLoop.getAsBoolean()));
+    }
+
+    /** @return A Command which changes the turning mode to {@link TurningMode#JOYSTICK_DIRECT}. */
+    public CommandBase directTurning() {
+        return Commands.runOnce(() -> setTurningMode(TurningMode.JOYSTICK_DIRECT));
+    }
+
+    /** @return A Command which changes the turning mode to {@link TurningMode#JOYSTICK_ANGLE}. */
+    public CommandBase angleTurning() {
+        return Commands.runOnce(() -> setTurningMode(TurningMode.JOYSTICK_ANGLE));
+    }
+
+    /** @return A Command which changes the turning mode to {@link TurningMode#HEADING_LOCK}. */
+    public CommandBase lockTurning() {
+        return Commands.runOnce(() -> setTurningMode(TurningMode.HEADING_LOCK));
     }
 }

@@ -33,6 +33,10 @@ import io.github.tigerbotics7125.robot.constants.RobotConstants;
 import java.util.function.BooleanSupplier;
 import java.util.function.DoubleSupplier;
 
+/**
+ * This class controls the "super" structure of the robot. It features 3DOF, a linear elevator,
+ * jointed to an arm, jointed again to a wrist.
+ */
 public class SuperStructure extends SubsystemBase {
 
     private Analog_873M_UltraSonic mElevatorDistanceSensor =
@@ -92,7 +96,7 @@ public class SuperStructure extends SubsystemBase {
         }
     }
 
-    public void configElevatorMotor(CANSparkMax motor) {
+    private void configElevatorMotor(CANSparkMax motor) {
         motor.restoreFactoryDefaults();
 
         motor.setIdleMode(IdleMode.kBrake);
@@ -113,7 +117,7 @@ public class SuperStructure extends SubsystemBase {
         Timer.delay(.25);
     }
 
-    public void configArmMotor(CANSparkMax motor) {
+    private void configArmMotor(CANSparkMax motor) {
 
         motor.restoreFactoryDefaults();
 
@@ -155,18 +159,54 @@ public class SuperStructure extends SubsystemBase {
         Timer.delay(.25);
     }
 
+    // ! PRIVATE INTERNAL COMMANDS
+
+    /**
+     * @param value What value to control the elevator with.
+     * @param controlType How to control the elevator.
+     * @return A Command which will run the elevator as desired.
+     */
     private CommandBase runElevator(double value, ControlType controlType) {
         return run(() -> mElevMaster.getPIDController().setReference(value, controlType));
     }
 
-    private CommandBase runArm(double value, ControlType controlType) {
+    /**
+     * @param value What value to control the arm with.
+     * @param controlType How to control the arm.
+     * @return A Command which will run the arm as desired.
+     */
+    // TODO: needs to be private
+    public CommandBase runArm(double value, ControlType controlType) {
         return run(() -> mArm.getPIDController().setReference(value, controlType));
     }
 
-    private CommandBase runWrist(double value, ControlType controlType) {
+    /**
+     * @param value What value to control the wrist with.
+     * @param controlType How to control the wrist.
+     * @return A Command which will run the wrist as desired.
+     */
+    // TODO: needs to be private
+    public CommandBase runWrist(double value, ControlType controlType) {
         return run(() -> mArm.getPIDController().setReference(value, controlType));
     }
 
+    /**
+     * @param idleMode What state the motor should use at idle.
+     * @return A Command which sets the new idle state of all motors in the structure.
+     */
+    private CommandBase idleAll(IdleMode idleMode) {
+        return runOnce(
+                () -> {
+                    mElevMaster.setIdleMode(idleMode);
+                    mElevFollower.setIdleMode(idleMode);
+                    mArm.setIdleMode(idleMode);
+                    mWrist.setIdleMode(idleMode);
+                });
+    }
+
+    // ! PUBLIC EXTERNAL COMMANDS
+
+    /** @return A Command which disables all motor output. */
     public CommandBase disable() {
         return run(
                 () -> {
@@ -176,15 +216,31 @@ public class SuperStructure extends SubsystemBase {
                 });
     }
 
+    /** @return A Command which sets all motors to coast. */
+    public CommandBase coastAll() {
+        return idleAll(IdleMode.kCoast);
+    }
+
+    /** @return A Command which sets all motors to brake. */
+    public CommandBase brakeAll() {
+        return idleAll(IdleMode.kBrake);
+    }
+
+    /** @return A Command which moves the elevator up, using duty cycle (ie its boring). */
     public CommandBase elevatorUp() {
         return runElevator(.7, ControlType.kDutyCycle).withName("Elevator Up");
     }
 
+    /** @return A Command which moves the elevator down, using duty cycle (ie its boring). */
     public CommandBase elevatorDown() {
         return runElevator(-.7, ControlType.kDutyCycle).withName("Elevator Down");
     }
 
-    public CommandBase homeElev() {
+    /**
+     * @return A Command which will home the elevator at the bottom, and calibrate its known
+     *     position.
+     */
+    public CommandBase homeingSequence() {
         Debouncer fastDeb = new Debouncer(.075, DebounceType.kRising);
         Debouncer slowDeb = new Debouncer(.2, DebounceType.kRising);
         double fastHomeStallAmps = 5;
@@ -225,23 +281,31 @@ public class SuperStructure extends SubsystemBase {
                 .andThen(runOnce(() -> mElevHasBeenHomed = true));
     }
 
+    /**
+     * @return A Command which will run the homing sequence if it has not been run since the code
+     *     has started.
+     */
     public CommandBase homeIfNeeded() {
-        if (!mElevHasBeenHomed) return homeElev();
+        if (!mElevHasBeenHomed) return homeingSequence();
         else return Commands.none();
     }
 
+    /**
+     * This command will run the homing sequence if it has not run yet.
+     *
+     * @param position Position to attempt to achieve.
+     * @return A Command which will attempt to achieve the provided position on the elevator.
+     */
     public CommandBase elevatorPosition(double position) {
+        BooleanSupplier atPosition =
+                () -> {
+                    double currPos = mElevMaster.getEncoder().getPosition();
+                    double delta = Math.abs(currPos - position);
+                    return delta < 0.5;
+                };
+
         return homeIfNeeded()
-                .andThen(
-                        runElevator(position, ControlType.kPosition)
-                                .until(
-                                        () ->
-                                                Math.abs(
-                                                                mElevMaster
-                                                                                .getEncoder()
-                                                                                .getPosition()
-                                                                        - position)
-                                                        < .5));
+                .andThen(runElevator(position, ControlType.kPosition).until(atPosition));
     }
 
     @Override
