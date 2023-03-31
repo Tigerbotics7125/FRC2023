@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022 Tigerbotics and it's members. All rights reserved.
+ * Copyright (c) 2023 Tigerbotics and it's members. All rights reserved.
  * This work is licensed under the terms of the GNU GPLv3 license
  * found in the root directory of this project.
  */
@@ -7,138 +7,94 @@ package io.github.tigerbotics7125.robot.subsystem;
 
 import static io.github.tigerbotics7125.robot.constants.VisionConstants.*;
 
-import edu.wpi.first.apriltag.AprilTagFieldLayout;
 import edu.wpi.first.math.geometry.Pose2d;
-import edu.wpi.first.math.util.Units;
-import edu.wpi.first.wpilibj.shuffleboard.Shuffleboard;
-import edu.wpi.first.wpilibj.shuffleboard.ShuffleboardTab;
-import edu.wpi.first.wpilibj.smartdashboard.Field2d;
-import edu.wpi.first.wpilibj.smartdashboard.FieldObject2d;
-import edu.wpi.first.wpilibj2.command.Subsystem;
+import edu.wpi.first.math.geometry.Pose3d;
+import edu.wpi.first.wpilibj2.command.SubsystemBase;
+import io.github.tigerbotics7125.lib.ASUtil;
 import io.github.tigerbotics7125.robot.Robot;
+import io.github.tigerbotics7125.robot.constants.DashboardConstants;
 import io.github.tigerbotics7125.robot.constants.FieldConstants;
-import io.github.tigerbotics7125.tigerlib.vision.SnakeEyes;
-import java.util.Objects;
+import java.util.List;
 import java.util.Optional;
-import org.photonvision.*;
+import org.photonvision.EstimatedRobotPose;
+import org.photonvision.PhotonCamera;
+import org.photonvision.PhotonPoseEstimator;
 import org.photonvision.PhotonPoseEstimator.PoseStrategy;
 
-public class Vision extends SnakeEyes implements Subsystem {
+public class Vision extends SubsystemBase {
 
-    private AprilTagFieldLayout mFieldLayout;
-    private PhotonPoseEstimator mPhotonEstimator;
+    private PhotonCamera mLeftCam;
+    private PhotonCamera mRightCam;
 
-    private ShuffleboardTab mSBTab;
-    private Field2d mDbgField;
-    private FieldObject2d mKnownVisionTargets;
-    private FieldObject2d mSeenVisionTargets;
-    private FieldObject2d mEstimatedRobotPosition;
+    private PhotonPoseEstimator mLeftEstimator;
+    private PhotonPoseEstimator mRightEstimator;
 
-    private SimPhotonCamera mSimCam;
-    private SimVisionSystem mSimVision;
+    private Pose3d mRobotPose = new Pose3d();
+    public double[] mLeftCamPose = new double[7];
+    public double[] mRightCamPose = new double[7];
 
     public Vision() {
-        super(VISION_CAM_NAME, CAMERA_TO_ROBOT_TRANSFORM.inverse());
-        // Register command to use periodic calls.
-        register();
 
-        // Cache result to prevent NPE.
-        getLatestResult();
+        mLeftCam = new PhotonCamera(LEFT_CAM_NAME);
+        mRightCam = new PhotonCamera(RIGHT_CAM_NAME);
+        mLeftCam.setDriverMode(false);
+        mRightCam.setDriverMode(false);
 
-        // Initialize dashboard.
-        mSBTab = Shuffleboard.getTab("Vision");
+        mLeftEstimator =
+                new PhotonPoseEstimator(
+                        FieldConstants.APRIL_TAG_FIELD_LAYOUT,
+                        PoseStrategy.MULTI_TAG_PNP,
+                        mLeftCam,
+                        ROBOT_TO_LEFT_CAM_TRANSFORM);
+        mRightEstimator =
+                new PhotonPoseEstimator(
+                        FieldConstants.APRIL_TAG_FIELD_LAYOUT,
+                        PoseStrategy.MULTI_TAG_PNP,
+                        mRightCam,
+                        ROBOT_TO_RIGHT_CAM_TRANSORM);
 
-        mDbgField = new Field2d();
-        mKnownVisionTargets = mDbgField.getObject("Known Vision Targets");
-        mSeenVisionTargets = mDbgField.getObject("Seen Vision Targets");
-        mEstimatedRobotPosition = mDbgField.getObject("Estimated Robot Pose");
+        mLeftEstimator.setMultiTagFallbackStrategy(PoseStrategy.LOWEST_AMBIGUITY);
+        mRightEstimator.setMultiTagFallbackStrategy(PoseStrategy.LOWEST_AMBIGUITY);
 
-        mSBTab.add(mDbgField);
-
-        mFieldLayout = FieldConstants.APRIL_TAG_FIELD_LAYOUT;
-        if (mFieldLayout != null) {
-            mPhotonEstimator =
-                    new PhotonPoseEstimator(
-                            mFieldLayout,
-                            PoseStrategy.MULTI_TAG_PNP,
-                            this.mCam,
-                            this.mRobotToCamera);
-            mPhotonEstimator.setMultiTagFallbackStrategy(PoseStrategy.LOWEST_AMBIGUITY);
-        }
-
-        if (mFieldLayout != null) {
-            mKnownVisionTargets.setPoses(
-                    mFieldLayout.getTags().stream().map(tag -> tag.pose.toPose2d()).toList());
-        }
-
-        if (Robot.isSimulation()) {
-            mSimVision =
-                    new SimVisionSystem(
-                            VISION_CAM_NAME,
-                            DIAG_FOV_DEGREES,
-                            CAMERA_TO_ROBOT_TRANSFORM,
-                            MAX_DETECTION_DISTANCE,
-                            WIDTH_PIXELS,
-                            HEIGHT_PIXELS,
-                            MIN_TARGET_AREA);
-            mSimCam = new SimPhotonCamera(VISION_CAM_NAME);
-
-            if (mFieldLayout != null) {
-                // Add tags to simulation.
-                mFieldLayout
-                        .getTags()
-                        .forEach(
-                                tag ->
-                                        mSimVision.addSimVisionTarget(
-                                                new SimVisionTarget(
-                                                        tag.pose,
-                                                        Units.inchesToMeters(8),
-                                                        Units.inchesToMeters(8),
-                                                        tag.ID)));
-            }
-        }
+        var tab = DashboardConstants.ODO_VISION_TAB;
+        tab.addDoubleArray(
+                "RobotPose",
+                () -> ASUtil.pose3dToDoubleArray(new Pose3d(Robot.mDrivetrain.getPose())));
+        tab.addDoubleArray(
+                "Left Cam",
+                () ->
+                        ASUtil.pose3dToDoubleArray(
+                                new Pose3d(Robot.mDrivetrain.getPose())
+                                        .transformBy(ROBOT_TO_LEFT_CAM_TRANSFORM)));
+        tab.addDoubleArray(
+                "Right Cam",
+                () ->
+                        ASUtil.pose3dToDoubleArray(
+                                new Pose3d(Robot.mDrivetrain.getPose())
+                                        .transformBy(ROBOT_TO_RIGHT_CAM_TRANSORM)));
+        tab.addDoubleArray("Left Cam Pose Estimate", () -> mLeftCamPose);
+        tab.addDoubleArray("Right Cam Pose Estimate", () -> mRightCamPose);
     }
 
-    /** @return The estimated pose as seen by the vision system. */
-    public Optional<EstimatedRobotPose> getEstimatedPose() {
-        // Field layout failed to load.
-        if (mPhotonEstimator == null) return Optional.empty();
+    public List<Optional<EstimatedRobotPose>> getEstimatedPoses() {
+        Optional<EstimatedRobotPose> leftPose = mLeftEstimator.update();
+        Optional<EstimatedRobotPose> rightPose = mRightEstimator.update();
 
-        Optional<EstimatedRobotPose> estimatedPose = mPhotonEstimator.update(mCachedResult);
+        leftPose.ifPresent((x) -> mLeftCamPose = ASUtil.pose3dToDoubleArray(x.estimatedPose));
+        rightPose.ifPresent((x) -> mRightCamPose = ASUtil.pose3dToDoubleArray(x.estimatedPose));
 
-        estimatedPose.ifPresent(
-                pose -> mEstimatedRobotPosition.setPose(pose.estimatedPose.toPose2d()));
-
-        return estimatedPose;
-    }
-
-    /**
-     * Update the vision simulation.
-     *
-     * @param robotPose the robots pose.
-     */
-    public void update(Pose2d robotPose) {
-        mSimVision.processFrame(robotPose);
+        return List.of(leftPose, rightPose);
     }
 
     @Override
     public void periodic() {
-        // cache latest result
-        this.getLatestResult();
-
-        mSeenVisionTargets.setPoses(
-                getTargets().stream()
-                        .map(
-                                (ptt) -> {
-                                    if (mFieldLayout == null) {
-                                        return null;
-                                    }
-                                    var tar = mFieldLayout.getTagPose(ptt.getFiducialId());
-                                    if (tar.isPresent()) return tar.get().toPose2d();
-                                    else return null;
-                                })
-                        .filter(o -> !Objects.isNull(o))
-                        .toList());
+        getEstimatedPoses().forEach((pose) -> pose.ifPresent(Robot.mDrivetrain::addVisionEstimate));
+        List<Pose2d> visionPoses =
+                getEstimatedPoses().stream()
+                        .filter(Optional::isPresent)
+                        .map((p) -> p.get().estimatedPose.toPose2d())
+                        .toList();
+        Robot.mDrivetrain.mField.getObject("visionPoses").setPoses(visionPoses);
     }
 
     @Override
