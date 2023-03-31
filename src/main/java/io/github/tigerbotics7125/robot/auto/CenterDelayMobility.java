@@ -17,7 +17,7 @@ public class CenterDelayMobility implements Auto {
 
     @Override
     public List<PathPlannerTrajectory> getPath() {
-        return PathPlanner.loadPathGroup("CenterDelayMobility", new PathConstraints(4, 2));
+        return PathPlanner.loadPathGroup("CenterDelayMobility", new PathConstraints(2, 1));
     }
 
     @Override
