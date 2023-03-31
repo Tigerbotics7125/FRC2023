@@ -392,8 +392,9 @@ public class Dashboard {
                             int leftX = (curr[0] - 1);
                             setSelectedNode(new int[] {leftX, curr[1]});
                         })
-                .ignoringDisable(true)
-                .alongWith(selectLeftSubstation());
+
+                .alongWith(selectLeftSubstation()).andThen(Commands.runOnce(() -> highlight(mCurrentZone)))
+                .ignoringDisable(true);
     }
 
     public static Command selectUp() {
@@ -403,7 +404,7 @@ public class Dashboard {
                             int upY = (curr[1] - 1);
                             setSelectedNode(new int[] {curr[0], upY});
                         })
-                .ignoringDisable(true);
+                .andThen(Commands.runOnce(() -> highlight(mCurrentZone))).ignoringDisable(true);
     }
 
     public static Command selectRight() {
@@ -413,8 +414,9 @@ public class Dashboard {
                             int rightX = (curr[0] + 1);
                             setSelectedNode(new int[] {rightX, curr[1]});
                         })
-                .ignoringDisable(true)
-                .alongWith(selectRightSubstation());
+
+                .alongWith(selectRightSubstation())
+                .andThen(Commands.runOnce(() -> highlight(mCurrentZone))).ignoringDisable(true);
     }
 
     public static Command selectDown() {
@@ -424,22 +426,18 @@ public class Dashboard {
                             int downY = (curr[1] + 1);
                             setSelectedNode(new int[] {curr[0], downY});
                         })
-                .ignoringDisable(true);
+               .andThen(Commands.runOnce(() -> highlight(mCurrentZone))).ignoringDisable(true);
     }
 
     private static Command selectLeftSubstation() {
         return Commands.runOnce(
                         () -> {
                             setSelectedSubstation(0);
-                        })
-                .ignoringDisable(true);
-    }
+                });    }
 
     private static Command selectRightSubstation() {
         return Commands.runOnce(
                         () -> {
                             setSelectedSubstation(1);
-                        })
-                .ignoringDisable(true);
-    }
+                });    }
 }
