@@ -159,17 +159,39 @@ public class Intake extends SubsystemBase {
     }
 
     /**
+     * @param feedback Command which will run when the routine automatically begins holding a
+     *     gamepiece for feedback.
      * @return A Command which will run the intake, then will detect when a gamepiece is intaked,
      *     then close and hold it.
      */
-    public CommandBase intakeRoutine() {
+    public CommandBase cubeIntakeRoutine(Command feedback) {
         Debouncer debounce = new Debouncer(MIN_DETECT_TIME, Debouncer.DebounceType.kRising);
         return runOnce(() -> debounce.calculate(false))
                 .andThen(grippersOpen())
                 .andThen(intakeIn())
                 .until(() -> debounce.calculate(getCurrent() >= MIN_DETECT_CURRENT))
-                .finallyDo((interrupted) -> holdRoutine().schedule())
-                .withName("Intake Routine");
+                .finallyDo(
+                        (interrupted) -> {
+                            feedback.schedule();
+                            holdRoutine().schedule();
+                        })
+                .withName("Cube Intake Routine");
+    }
+
+    /**
+     * @return A Command which will close the grippers and outake, to ensure the gamepiece is
+     *     expelled properlly, then will open the grippers upon finishing.
+     */
+    public CommandBase outakeRoutine() {
+        return grippersClose()
+                .andThen(intakeOut())
+                .finallyDo((interrupted -> grippersOpen().schedule()));
+    }
+
+    public CommandBase coneIntakeRoutine() {
+        return grippersClose()
+                .andThen(intakeIn())
+                .finallyDo(interrupted -> holdRoutine().schedule());
     }
 
     @Override
