@@ -12,17 +12,24 @@ import edu.wpi.first.math.util.Units;
 
 public final class VisionConstants {
 
-    public static final String VISION_CAM_NAME = "OV5647";
+    public static final String LEFT_CAM_NAME = "LeftCam";
+    public static final String RIGHT_CAM_NAME = "RightCam";
     public static final String DRIVER_CAM_NAME = "HD_Pro_Webcam_C920";
 
-    public static final Transform3d CAMERA_TO_ROBOT_TRANSFORM =
+    public static final Transform3d ROBOT_TO_LEFT_CAM_TRANSFORM =
             new Transform3d(
-                            new Translation3d(
-                                    Units.inchesToMeters(17),
-                                    Units.inchesToMeters(3),
-                                    Units.inchesToMeters(9)),
-                            new Rotation3d(0, 0, 0))
-                    .inverse();
+                    new Translation3d(
+                            Units.inchesToMeters(11.5),
+                            Units.inchesToMeters(9),
+                            Units.inchesToMeters(32)),
+                    new Rotation3d(Units.degreesToRadians(-90), Units.degreesToRadians(1), 0));
+    public static final Transform3d ROBOT_TO_RIGHT_CAM_TRANSORM =
+            new Transform3d(
+                    new Translation3d(
+                            Units.inchesToMeters(11.5),
+                            Units.inchesToMeters(-9),
+                            Units.inchesToMeters(32)),
+                    new Rotation3d(Units.degreesToRadians(90), Units.degreesToRadians(1), 0));
 
     // Sim variables
     public static final double DIAG_FOV_DEGREES = 67.0;
