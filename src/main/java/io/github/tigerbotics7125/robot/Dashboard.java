@@ -5,7 +5,7 @@
  */
 package io.github.tigerbotics7125.robot;
 
-import static io.github.tigerbotics7125.robot.constants.OIConstants.*;
+import static io.github.tigerbotics7125.robot.constants.DashboardConstants.*;
 
 import edu.wpi.first.wpilibj.DriverStation;
 import edu.wpi.first.wpilibj.DriverStation.Alliance;
@@ -19,11 +19,12 @@ import edu.wpi.first.wpilibj2.command.Command;
 import edu.wpi.first.wpilibj2.command.Commands;
 import io.github.tigerbotics7125.robot.constants.AutoPilotConstants.AutoPilotPoint;
 import io.github.tigerbotics7125.robot.constants.VisionConstants;
+import io.github.tigerbotics7125.robot.subsystem.SuperStructure;
 import java.util.Map;
 import java.util.stream.Stream;
 import org.photonvision.PhotonCamera;
 
-public class OperatorInterface {
+public class Dashboard {
 
     public enum OpZone {
         NODES,
@@ -61,7 +62,7 @@ public class OperatorInterface {
         initSubstationSelector();
 
         // Add match time widget.
-        OI_TAB.addString("Match Time", () -> mMatchTime)
+        MAIN_TAB.addString("Match Time", () -> mMatchTime)
                 .withWidget(BuiltInWidgets.kTextView)
                 .withPosition(0, 0)
                 .withSize(1, 1);
@@ -69,33 +70,34 @@ public class OperatorInterface {
         // Dont let photon use computation on it
         mDriverCam.setDriverMode(true);
         // Add camera widgets.
-        OI_TAB.add(
+        MAIN_TAB.add(
                         "Driver Cam",
                         SendableCameraWrapper.wrap(
                                 "Driver Cam",
-                                "http://10.71.25.11:1184/stream.mjpg",
+                                "http://10.71.25.12:1184/stream.mjpg",
                                 "http://photonvision.local:1184/stream.mjpg"))
                 .withPosition(0, 1)
                 .withSize(4, 4)
                 .withProperties(Map.of("Show crosshair", false, "Show controls", false));
-        OI_TAB.add(
-                        "Vision Cam",
-                        SendableCameraWrapper.wrap(
+        /*
+                MAIN_TAB.add(
                                 "Vision Cam",
-                                "http://10.71.25.11:1182/stream.mjpg",
-                                "http://photonvision.local:1182/stream.mjpg"))
-                .withPosition(4, 2)
-                .withSize(3, 2)
-                .withProperties(Map.of("Show crosshair", false, "Show controls", false));
-
+                                SendableCameraWrapper.wrap(
+                                        "Vision Cam",
+                                        "http://10.71.25.11:1182/stream.mjpg",
+                                        "http://photonvision.local:1182/stream.mjpg"))
+                        .withPosition(4, 2)
+                        .withSize(3, 2)
+                        .withProperties(Map.of("Show crosshair", false, "Show controls", false));
+        */
         // Add widget showing if autopilot is available.
-        OI_TAB.addBoolean(
+        MAIN_TAB.addBoolean(
                         "Auto Pilot",
                         () -> AutoPilot.isViable(Robot.mDrivetrain.getPose(), getAutoPilotPoint()))
                 .withWidget(BuiltInWidgets.kBooleanBox)
                 .withPosition(1, 0)
                 .withSize(1, 1);
-        OI_TAB.add(Robot.mAutoChooser)
+        MAIN_TAB.add(Robot.mAutoChooser)
                 .withPosition(2, 0)
                 .withSize(2, 1)
                 .withWidget(BuiltInWidgets.kComboBoxChooser);
@@ -104,6 +106,30 @@ public class OperatorInterface {
     /** Call periodically to update dashboard values. */
     public static void update() {
         updateMatchTime();
+    }
+
+    /** @return The desired SuperStructure state based on the dashboard selector. */
+    public static SuperStructure.State getSuperStrucState() {
+        if (getZone() == OpZone.NODES) {
+            int column = getSelectedNode()[0] % 3;
+            int row = getSelectedNode()[1] % 3;
+            // hybrid is all the same.
+            if (row == 2) return SuperStructure.State.HYBRID;
+            // if is cone
+            if (column == 0 || column == 2) {
+                if (row == 0) return SuperStructure.State.HIGH_CONE;
+                if (row == 1) return SuperStructure.State.MID_CONE;
+            } else {
+                // cube
+                if (row == 0) return SuperStructure.State.HIGH_CUBE;
+                if (row == 1) return SuperStructure.State.MID_CUBE;
+            }
+        } else if (getZone() == OpZone.SUBSTATIONS) {
+            return SuperStructure.State.SUBSTATION;
+        }
+
+        // Unknown desired state
+        return SuperStructure.State.DISABLE;
     }
 
     /** @return The desired AutoPilotPoint as determined by the dashboard. */
@@ -167,7 +193,7 @@ public class OperatorInterface {
     public static void initNodeSelector() {
         // Initialize layout.
         mNodeSelector =
-                OI_TAB.getLayout("Node Selector", BuiltInLayouts.kGrid)
+                MAIN_TAB.getLayout("Node Selector", BuiltInLayouts.kGrid)
                         .withPosition(4, 0)
                         .withSize(5, 2)
                         .withProperties(
@@ -223,7 +249,7 @@ public class OperatorInterface {
     public static void initSubstationSelector() {
         // Initialize layout.
         mSubstationSelector =
-                OI_TAB.getLayout("Substation", BuiltInLayouts.kGrid)
+                MAIN_TAB.getLayout("Substation", BuiltInLayouts.kGrid)
                         .withPosition(7, 2)
                         .withSize(2, 1)
                         .withProperties(
@@ -316,23 +342,18 @@ public class OperatorInterface {
         mNodes[mSelectedNode[0]][mSelectedNode[1]] = false;
         mNodes[x][y] = true;
         mSelectedNode = node;
-
-        highlight(OpZone.NODES);
     }
 
     private static void setSelectedSubstation(int substation) {
         mSubstations[mSelectedSubstation] = false;
         mSubstations[substation] = true;
         mSelectedSubstation = substation;
-
-        highlight(OpZone.SUBSTATIONS);
     }
 
     private static void highlight(OpZone zone) {
         // highlight
         switch (zone) {
             case NODES -> mNodes[mSelectedNode[0]][mSelectedNode[1]] = true;
-
             case SUBSTATIONS -> mSubstations[mSelectedSubstation] = true;
         }
 
@@ -351,13 +372,11 @@ public class OperatorInterface {
     public static Command toggleZone() {
         return Commands.runOnce(
                         () -> {
-                            if (mCurrentZone.equals(OpZone.NODES)) {
-                                highlight(OpZone.SUBSTATIONS);
-                                mCurrentZone = OpZone.SUBSTATIONS;
-                            } else {
-                                highlight(OpZone.NODES);
-                                mCurrentZone = OpZone.NODES;
-                            }
+                            int newZoneOrdinal =
+                                    (mCurrentZone.ordinal() + 1) % OpZone.values().length;
+                            OpZone newZone = OpZone.values()[newZoneOrdinal];
+                            highlight(newZone);
+                            mCurrentZone = newZone;
                         })
                 .ignoringDisable(true);
     }
@@ -373,7 +392,8 @@ public class OperatorInterface {
                             int leftX = (curr[0] - 1);
                             setSelectedNode(new int[] {leftX, curr[1]});
                         })
-                .ignoringDisable(true);
+                .ignoringDisable(true)
+                .alongWith(selectLeftSubstation());
     }
 
     public static Command selectUp() {
@@ -393,7 +413,8 @@ public class OperatorInterface {
                             int rightX = (curr[0] + 1);
                             setSelectedNode(new int[] {rightX, curr[1]});
                         })
-                .ignoringDisable(true);
+                .ignoringDisable(true)
+                .alongWith(selectRightSubstation());
     }
 
     public static Command selectDown() {
@@ -406,7 +427,7 @@ public class OperatorInterface {
                 .ignoringDisable(true);
     }
 
-    public static Command selectLeftSubstation() {
+    private static Command selectLeftSubstation() {
         return Commands.runOnce(
                         () -> {
                             setSelectedSubstation(0);
@@ -414,7 +435,7 @@ public class OperatorInterface {
                 .ignoringDisable(true);
     }
 
-    public static Command selectRightSubstation() {
+    private static Command selectRightSubstation() {
         return Commands.runOnce(
                         () -> {
                             setSelectedSubstation(1);
