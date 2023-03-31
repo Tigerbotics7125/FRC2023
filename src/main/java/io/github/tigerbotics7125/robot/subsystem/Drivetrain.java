@@ -30,11 +30,12 @@ import edu.wpi.first.math.kinematics.MecanumDriveWheelPositions;
 import edu.wpi.first.math.kinematics.MecanumDriveWheelSpeeds;
 import edu.wpi.first.math.util.Units;
 import edu.wpi.first.wpilibj.RobotState;
-import edu.wpi.first.wpilibj.SerialPort;
+import edu.wpi.first.wpilibj.SPI;
 import edu.wpi.first.wpilibj.Timer;
 import edu.wpi.first.wpilibj.drive.MecanumDrive;
 import edu.wpi.first.wpilibj.shuffleboard.Shuffleboard;
 import edu.wpi.first.wpilibj.shuffleboard.ShuffleboardTab;
+import edu.wpi.first.wpilibj.smartdashboard.Field2d;
 import edu.wpi.first.wpilibj2.command.CommandBase;
 import edu.wpi.first.wpilibj2.command.Commands;
 import edu.wpi.first.wpilibj2.command.SubsystemBase;
@@ -89,6 +90,8 @@ public class Drivetrain extends SubsystemBase {
     // TODO: add ff constants to DT constants file.
     private SimpleMotorFeedforward mFF = new SimpleMotorFeedforward(0.1, 2.8, 1.5);
 
+    public final Field2d mField = new Field2d();
+
     /**
      * @param cameras A list of all camera-translation pairs used on the robot for vision detection,
      *     this is for calculating robot pose from vision.
@@ -104,8 +107,7 @@ public class Drivetrain extends SubsystemBase {
         mPIDControllers = new ArrayList<>();
         mMotors.forEach(this::configureMotor);
 
-        mNavx = new AHRS(SerialPort.Port.kMXP);
-        mNavx.enableLogging(false);
+        mNavx = new AHRS(SPI.Port.kMXP);
 
         mPoseEstimator =
                 new MecanumDrivePoseEstimator(
@@ -130,6 +132,7 @@ public class Drivetrain extends SubsystemBase {
         driveTab.addNumber("Desired Heading", () -> mDesiredHeading.getDegrees());
         driveTab.addBoolean("Field Oriented", () -> mFieldOriented);
         driveTab.addString("Turning Mode", () -> mTurningMode.name());
+        driveTab.add("Odometry", mField);
     }
 
     /**
@@ -141,7 +144,7 @@ public class Drivetrain extends SubsystemBase {
         motor.restoreFactoryDefaults();
 
         motor.setIdleMode(IdleMode.kCoast);
-        motor.setSmartCurrentLimit(STALL_CURRENT_LIMIT_AMPS, FREE_SPEED_CURRENT_LIMIT_AMPS, 0);
+        motor.setSmartCurrentLimit(STALL_CURRENT_LIMIT_AMPS);
         motor.enableVoltageCompensation(NOMINAL_VOLTAGE);
 
         RelativeEncoder encoder = motor.getEncoder();
@@ -175,6 +178,8 @@ public class Drivetrain extends SubsystemBase {
     public void periodic() {
         // update the pose estimation with the current odometry data.
         mPoseEstimator.updateWithTime(Timer.getFPGATimestamp(), getHeading(), getWheelPositions());
+
+        mField.setRobotPose(getPose());
     }
 
     @Override
@@ -225,7 +230,6 @@ public class Drivetrain extends SubsystemBase {
      * @param openLoop Whether to use open or closed loop control.
      */
     public void drive(double x, double y, double z_x, double z_y, boolean openLoop) {
-        z_y = -z_y;
 
         // Determines if there is rotation input.
         boolean noRotationInput = z_x == 0.0 && z_y == 0.0;
@@ -247,16 +251,14 @@ public class Drivetrain extends SubsystemBase {
          */
         Translation2d input = new Translation2d(x, y);
         if (!openLoop) input = input.times(MAX_LINEAR_VELOCITY_MPS);
-        if (mFieldOriented) input = input.rotateBy(getHeading().unaryMinus());
+        if (mFieldOriented) input = input.rotateBy(getHeading());
 
         /** Rotation input, in units of %on for open loop, and rad/s for closed loop. */
         double thetaSpeed;
-        if (openLoop) {
-            thetaSpeed = z_y;
-        } else {
+        if (openLoop) thetaSpeed = z_y;
+        else
             thetaSpeed =
                     mThetaPID.calculate(getHeading().getRadians(), mDesiredHeading.getRadians());
-        }
 
         // set outputs
         if (openLoop) {
@@ -372,11 +374,13 @@ public class Drivetrain extends SubsystemBase {
      * @param speeds The wheel speeds in duty cycle to have the robot drive by.
      */
     public void setOpenLoopSpeeds(MecanumDrive.WheelSpeeds speeds) {
+
         List<Double> duties =
                 List.of(speeds.frontLeft, speeds.frontRight, speeds.rearLeft, speeds.rearRight);
 
         for (int i = 0; i < 4; i++) {
-            mPIDControllers.get(i).setReference(duties.get(i), ControlType.kDutyCycle);
+            mMotors.get(i).set(duties.get(i));
+            // mPIDControllers.get(i).setReference(duties.get(i), ControlType.kDutyCycle);
         }
     }
 
@@ -409,6 +413,34 @@ public class Drivetrain extends SubsystemBase {
     /** @return A Command which disables all motor output. */
     public CommandBase disable() {
         return runOnce(() -> mMotors.forEach(CANSparkMax::disable));
+    }
+
+    /**
+     * NOTE: This method requires openloop control.
+     *
+     * @param x X axis input, forwards is positive.
+     * @param y Y axis input, left is positive.
+     * @param z_x Rotation x input, forwards is positive. Used only for {@link
+     *     TurningMode#JOYSTICK_ANGLE}.
+     * @param z_y Rotation y input, left is positive. Also used for {@link
+     *     TurningMode#JOYSTICK_DIRECT}, where positive correlates to CCW rotation.
+     * @param limit Limiting supplier, all inputs are divided by this value, should be [0, 1]. 0
+     *     meaning no output, 1 meaning full output
+     * @return A Command which will drive the robot, limiting its speed according to the limit
+     *     function.
+     */
+    public CommandBase driveWithLimits(
+            final DoubleSupplier x,
+            final DoubleSupplier y,
+            final DoubleSupplier z_x,
+            final DoubleSupplier z_y,
+            final DoubleSupplier limit) {
+        return drive(
+                () -> x.getAsDouble() * limit.getAsDouble(),
+                () -> y.getAsDouble() * limit.getAsDouble(),
+                () -> z_x.getAsDouble() * limit.getAsDouble(),
+                () -> z_y.getAsDouble() * limit.getAsDouble(),
+                () -> true);
     }
 
     /**
