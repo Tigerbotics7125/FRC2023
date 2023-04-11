@@ -23,6 +23,7 @@ import edu.wpi.first.wpilibj2.command.CommandScheduler;
 import edu.wpi.first.wpilibj2.command.Commands;
 import io.github.tigerbotics7125.robot.OI.Controller;
 import io.github.tigerbotics7125.robot.auto.Auto;
+import io.github.tigerbotics7125.robot.auto.CableRun;
 import io.github.tigerbotics7125.robot.auto.CenterDelayMobility;
 import io.github.tigerbotics7125.robot.auto.None;
 import io.github.tigerbotics7125.robot.constants.ElevatorConstants;
@@ -75,6 +76,7 @@ public class Robot extends CommandRobot {
         mAutoChooser = new SendableChooser<>();
         mAutoChooser.setDefaultOption("NONE", new None());
         mAutoChooser.addOption("Center Delay to Wall", new CenterDelayMobility());
+        mAutoChooser.addOption("Cable Run", new CableRun());
 
         configTriggers();
 
