@@ -6,7 +6,7 @@
 package io.github.tigerbotics7125.robot.subsystem;
 
 import static io.github.tigerbotics7125.robot.constants.WristConstants.*;
-import java.util.function.DoubleSupplier;
+
 import com.ctre.phoenix.sensors.CANCoder;
 import com.revrobotics.CANSparkMax;
 import com.revrobotics.CANSparkMax.IdleMode;
@@ -20,6 +20,7 @@ import edu.wpi.first.math.util.Units;
 import edu.wpi.first.wpilibj2.command.CommandBase;
 import edu.wpi.first.wpilibj2.command.ProfiledPIDSubsystem;
 import io.github.tigerbotics7125.robot.constants.RobotConstants;
+import java.util.function.DoubleSupplier;
 
 public class Wrist extends ProfiledPIDSubsystem {
 
@@ -49,7 +50,6 @@ public class Wrist extends ProfiledPIDSubsystem {
 
     public Wrist() {
         super(PID);
-
 
         configMotor(mWrist);
 
@@ -112,10 +112,11 @@ public class Wrist extends ProfiledPIDSubsystem {
     }
 
     public CommandBase manualDrive(DoubleSupplier dutyCycle) {
-        return runOnce(() -> {
-            var input = setpoint + dutyCycle.getAsDouble() / .02;
-            setGoal(input);
-            setpoint = input;
-        });
+        return runOnce(
+                () -> {
+                    var input = setpoint + dutyCycle.getAsDouble() / .02;
+                    setGoal(input);
+                    setpoint = input;
+                });
     }
 }

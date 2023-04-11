@@ -6,7 +6,7 @@
 package io.github.tigerbotics7125.robot.subsystem;
 
 import static io.github.tigerbotics7125.robot.constants.ArmConstants.*;
-import java.util.function.DoubleSupplier;
+
 import com.ctre.phoenix.sensors.CANCoder;
 import com.revrobotics.CANSparkMax;
 import com.revrobotics.CANSparkMax.IdleMode;
@@ -21,6 +21,7 @@ import edu.wpi.first.math.util.Units;
 import edu.wpi.first.wpilibj2.command.CommandBase;
 import edu.wpi.first.wpilibj2.command.ProfiledPIDSubsystem;
 import io.github.tigerbotics7125.robot.constants.RobotConstants;
+import java.util.function.DoubleSupplier;
 
 public class Arm extends ProfiledPIDSubsystem {
 
@@ -29,7 +30,6 @@ public class Arm extends ProfiledPIDSubsystem {
         GROUND_INTAKE(Rotation2d.fromDegrees(47)),
         HIGH_CUBE(Rotation2d.fromDegrees(0)),
         UP(Rotation2d.fromRadians(.1));
-
 
         private Rotation2d mRotation;
 
@@ -42,8 +42,8 @@ public class Arm extends ProfiledPIDSubsystem {
 
     private final CANCoder mCANCoder = new CANCoder(CANCODER_ID);
     private final double mEncoderRatio = 1D / CHAIN_RATIO;
-    private final double mOffset = mCANCoder.getAbsolutePosition() * mEncoderRatio
-            - ABSOLUTE_HOME_DEG * mEncoderRatio;
+    private final double mOffset =
+            mCANCoder.getAbsolutePosition() * mEncoderRatio - ABSOLUTE_HOME_DEG * mEncoderRatio;
 
     private State mState = State.HOME;
 
@@ -112,9 +112,10 @@ public class Arm extends ProfiledPIDSubsystem {
 
     public CommandBase manualDrive(DoubleSupplier dutyCycle) {
         PIDController pid = new PIDController(P_GAIN, I_GAIN, D_GAIN);
-        return runOnce(() -> {
-            setpoint += dutyCycle.getAsDouble() * .02;
-            mArm.set(pid.calculate(setpoint));
-        });
+        return runOnce(
+                () -> {
+                    setpoint += dutyCycle.getAsDouble() * .02;
+                    mArm.set(pid.calculate(setpoint));
+                });
     }
 }

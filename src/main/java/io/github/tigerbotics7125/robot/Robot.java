@@ -6,6 +6,7 @@
 package io.github.tigerbotics7125.robot;
 
 import static io.github.tigerbotics7125.tigerlib.input.trigger.Trigger.ActivationCondition.*;
+
 import com.pathplanner.lib.auto.MecanumAutoBuilder;
 import com.pathplanner.lib.auto.PIDConstants;
 import com.revrobotics.CANSparkMax;
