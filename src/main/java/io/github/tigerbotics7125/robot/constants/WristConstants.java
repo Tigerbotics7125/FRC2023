@@ -21,11 +21,11 @@ public class WristConstants {
     public static final int CANCODER_ID = 31;
 
     // Theoretical values, neo free speed (in rps) * pos_conv_factor
-    public static final double MAX_VEL = 1.76; // rotations per second
+    public static final double MAX_VEL = .5; // 1.76; // rotations per second
     // not calculated, simply pick time to reach max vel.
     public static final double MAX_ACCEL = MAX_VEL / 1D; // rotations per second^2
 
-    public static final double P_GAIN = 1;
+    public static final double P_GAIN = .4;
     public static final double I_GAIN = 0;
     public static final double D_GAIN = 0;
     public static final Constraints CONSTRAINTS = new Constraints(MAX_VEL, MAX_ACCEL);
@@ -36,7 +36,7 @@ public class WristConstants {
         PID.setTolerance(Units.degreesToRadians(1));
     }
 
-    public static final double ABSOLUTE_HOME_DEG = 0D;
+    public static final double ABSOLUTE_HOME_DEG = 117D;
 
     public static final double GEAR_RATIO = 20D;
     public static final double CHAIN_RATIO = 60D / 12D;

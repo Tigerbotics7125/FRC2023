@@ -6,7 +6,7 @@
 package io.github.tigerbotics7125.robot.subsystem;
 
 import static io.github.tigerbotics7125.robot.constants.ArmConstants.*;
-
+import java.util.function.DoubleSupplier;
 import com.ctre.phoenix.sensors.CANCoder;
 import com.revrobotics.CANSparkMax;
 import com.revrobotics.CANSparkMax.IdleMode;
@@ -14,6 +14,7 @@ import com.revrobotics.RelativeEncoder;
 import edu.wpi.first.hal.SimDouble;
 import edu.wpi.first.hal.simulation.SimDeviceDataJNI;
 import edu.wpi.first.math.MathUtil;
+import edu.wpi.first.math.controller.PIDController;
 import edu.wpi.first.math.geometry.Rotation2d;
 import edu.wpi.first.math.trajectory.TrapezoidProfile;
 import edu.wpi.first.math.util.Units;
@@ -25,9 +26,10 @@ public class Arm extends ProfiledPIDSubsystem {
 
     public enum State {
         HOME(new Rotation2d()),
-        GROUND_INTAKE(Rotation2d.fromDegrees(-10)),
+        GROUND_INTAKE(Rotation2d.fromDegrees(47)),
         HIGH_CUBE(Rotation2d.fromDegrees(0)),
         UP(Rotation2d.fromRadians(.1));
+
 
         private Rotation2d mRotation;
 
@@ -37,15 +39,19 @@ public class Arm extends ProfiledPIDSubsystem {
     }
 
     private final CANSparkMax mArm = new CANSparkMax(MOTOR_ID, MOTOR_TYPE);
+
     private final CANCoder mCANCoder = new CANCoder(CANCODER_ID);
+    private final double mEncoderRatio = 1D / CHAIN_RATIO;
+    private final double mOffset = mCANCoder.getAbsolutePosition() * mEncoderRatio
+            - ABSOLUTE_HOME_DEG * mEncoderRatio;
 
     private State mState = State.HOME;
 
+    private double setpoint;
+
     public Arm() {
         super(PID);
-
         configMotor(mArm);
-
         mCANCoder.configAllSettings(CANCODER_CONFIG);
         mCANCoder.setPosition(
                 -(CANCODER_POS_CONV_FACTOR
@@ -102,5 +108,13 @@ public class Arm extends ProfiledPIDSubsystem {
         vel.set(preVel.get() * VEL_CONV_FACTOR);
         double masterPos = vel.get() * .02;
         mArm.getEncoder().setPosition(mArm.getEncoder().getPosition() + masterPos);
+    }
+
+    public CommandBase manualDrive(DoubleSupplier dutyCycle) {
+        PIDController pid = new PIDController(P_GAIN, I_GAIN, D_GAIN);
+        return runOnce(() -> {
+            setpoint += dutyCycle.getAsDouble() * .02;
+            mArm.set(pid.calculate(setpoint));
+        });
     }
 }

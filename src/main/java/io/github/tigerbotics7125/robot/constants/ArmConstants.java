@@ -40,7 +40,7 @@ public class ArmConstants {
         PID.setTolerance(Units.degreesToRadians(1));
     }
 
-    public static final double ABSOLUTE_HOME_DEG = 114D;
+    public static final double ABSOLUTE_HOME_DEG = 205D;
 
     public static final double MAX_ANGLE_RAD = Units.degreesToRadians(ABSOLUTE_HOME_DEG);
     public static final double MIN_ANGLE_RAD = Units.degreesToRadians(ABSOLUTE_HOME_DEG - 180);
@@ -57,7 +57,7 @@ public class ArmConstants {
         CANCODER_CONFIG.absoluteSensorRange = AbsoluteSensorRange.Unsigned_0_to_360;
         CANCODER_CONFIG.initializationStrategy =
                 SensorInitializationStrategy.BootToAbsolutePosition;
-        CANCODER_CONFIG.magnetOffsetDegrees = 225D;
+        CANCODER_CONFIG.magnetOffsetDegrees = 120;
         CANCODER_CONFIG.unitString = "deg";
     }
 }

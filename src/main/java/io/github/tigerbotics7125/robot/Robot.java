@@ -6,7 +6,6 @@
 package io.github.tigerbotics7125.robot;
 
 import static io.github.tigerbotics7125.tigerlib.input.trigger.Trigger.ActivationCondition.*;
-
 import com.pathplanner.lib.auto.MecanumAutoBuilder;
 import com.pathplanner.lib.auto.PIDConstants;
 import com.revrobotics.CANSparkMax;
@@ -183,5 +182,7 @@ public class Robot extends CommandRobot {
                         () -> mOI.mDriver.rightX().get() * -1,
                         () -> 1 - (mElev.getMeasurement() / ElevatorConstants.MAX_HEIGHT)));
         mIntake.setDefaultCommand(mIntake.disable());
+        mArm.setDefaultCommand(mArm.manualDrive(mOI.mOp.leftY()::get));
+        mWrist.setDefaultCommand(mWrist.manualDrive(mOI.mOp.rightY()::get));
     }
 }

@@ -89,7 +89,7 @@ public class SuperStructure extends SubsystemBase {
         tab.addDouble("Elev Setpoint", () -> mElev.getController().getGoal().position);
         tab.addDouble("Elev Pos", () -> mElev.getMeasurement());
         tab.addDouble("Arm Setpoint", () -> mArm.getController().getGoal().position);
-        tab.addDouble("Arm Pos", () -> mArm.getMeasurement());
+        tab.addDouble("Arm Pos", () -> Units.radiansToDegrees(mArm.getMeasurement()));
         tab.addDouble("Wrist Setpoint", () -> mWrist.getController().getGoal().position);
         tab.addDouble("Wrist Pos", () -> mWrist.getMeasurement());
 

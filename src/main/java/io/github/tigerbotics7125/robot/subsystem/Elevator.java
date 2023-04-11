@@ -25,13 +25,13 @@ import io.github.tigerbotics7125.robot.constants.RobotConstants;
 public class Elevator extends ProfiledPIDSubsystem {
 
     public enum State {
-        HOME(1),
+        HOME(0),
         QUARTER(MAX_HEIGHT / 4D),
         HALF(MAX_HEIGHT / 2D),
         THREE_QUARTERS(3D * MAX_HEIGHT / 4D),
         MAX(MAX_HEIGHT),
 
-        GROUND_INTAKE(.50),
+        GROUND_INTAKE(MAX_HEIGHT * .9), // .30),
         HYBRID(0),
         MID_CUBE(0),
         MID_CONE_PLACE(0),

@@ -6,7 +6,7 @@
 package io.github.tigerbotics7125.robot.subsystem;
 
 import static io.github.tigerbotics7125.robot.constants.WristConstants.*;
-
+import java.util.function.DoubleSupplier;
 import com.ctre.phoenix.sensors.CANCoder;
 import com.revrobotics.CANSparkMax;
 import com.revrobotics.CANSparkMax.IdleMode;
@@ -25,7 +25,7 @@ public class Wrist extends ProfiledPIDSubsystem {
 
     public enum State {
         HOME(new Rotation2d()),
-        GROUND_INTAKE(new Rotation2d()),
+        GROUND_INTAKE(Rotation2d.fromRadians(1)),
 
         MIN(new Rotation2d()),
 
@@ -45,8 +45,11 @@ public class Wrist extends ProfiledPIDSubsystem {
 
     private State mState = State.HOME;
 
+    private double setpoint = getMeasurement();
+
     public Wrist() {
         super(PID);
+
 
         configMotor(mWrist);
 
@@ -60,7 +63,7 @@ public class Wrist extends ProfiledPIDSubsystem {
         motor.restoreFactoryDefaults();
 
         motor.setIdleMode(IdleMode.kCoast);
-        motor.setInverted(true);
+        motor.setInverted(false);
         motor.setSmartCurrentLimit(40);
         motor.enableVoltageCompensation(RobotConstants.NOMINAL_VOLTAGE);
 
@@ -106,5 +109,13 @@ public class Wrist extends ProfiledPIDSubsystem {
         vel.set(preVel.get() * VEL_CONV_FACTOR);
         double masterPos = vel.get() * .02;
         mWrist.getEncoder().setPosition(mWrist.getEncoder().getPosition() + masterPos);
+    }
+
+    public CommandBase manualDrive(DoubleSupplier dutyCycle) {
+        return runOnce(() -> {
+            var input = setpoint + dutyCycle.getAsDouble() / .02;
+            setGoal(input);
+            setpoint = input;
+        });
     }
 }
