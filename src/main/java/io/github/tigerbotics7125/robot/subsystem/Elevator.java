@@ -86,7 +86,8 @@ public class Elevator extends ProfiledPIDSubsystem {
     @Override
     protected void useOutput(double output, TrapezoidProfile.State setpoint) {
         double ff =
-                mFF.calculate(setpoint.velocity, (setpoint.velocity - mVelocity0) / Robot.kDefaultPeriod);
+                mFF.calculate(
+                        setpoint.velocity, (setpoint.velocity - mVelocity0) / Robot.kDefaultPeriod);
         mVelocity0 = setpoint.velocity;
         mMaster.setVoltage(output * 12D + ff);
     }

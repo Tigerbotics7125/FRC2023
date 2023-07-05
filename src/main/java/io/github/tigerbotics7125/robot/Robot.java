@@ -11,7 +11,6 @@ import com.pathplanner.lib.auto.MecanumAutoBuilder;
 import com.pathplanner.lib.auto.PIDConstants;
 import com.revrobotics.CANSparkMax;
 import com.revrobotics.REVPhysicsSim;
-import edu.wpi.first.wpilibj.Compressor;
 import edu.wpi.first.wpilibj.DriverStation;
 import edu.wpi.first.wpilibj.PneumaticHub;
 import edu.wpi.first.wpilibj.PowerDistribution;
@@ -28,7 +27,6 @@ import io.github.tigerbotics7125.robot.auto.CenterDelayMobility;
 import io.github.tigerbotics7125.robot.auto.None;
 import io.github.tigerbotics7125.robot.constants.ElevatorConstants;
 import io.github.tigerbotics7125.robot.subsystem.*;
-import io.github.tigerbotics7125.robot.subsystem.Drivetrain.TurningMode;
 import io.github.tigerbotics7125.tigerlib.CommandRobot;
 import io.github.tigerbotics7125.tigerlib.input.trigger.Trigger;
 
@@ -66,9 +64,7 @@ public class Robot extends CommandRobot {
     // Lets the user pick the auto that runs.
     public static SendableChooser<Auto> mAutoChooser;
 
-    /**
-     * Initializes all of the objects above plus sets up a couple things.
-     */
+    /** Initializes all of the objects above plus sets up a couple things. */
     @Override
     public void robotInit() {
 
@@ -87,7 +83,8 @@ public class Robot extends CommandRobot {
         mSuperStructure = new SuperStructure(mElev, mArm, mWrist);
         mIntake = new Intake();
 
-        // The constructor uses a "Supplier" which in this case is a method reference / lambda, you can look up what those are.
+        // The constructor uses a "Supplier" which in this case is a method reference / lambda, you
+        // can look up what those are.
         mAutoPilot = new AutoPilot(mDrivetrain, Dashboard::getAutoPilotPoint);
 
         mAutoChooser = new SendableChooser<>();
@@ -109,9 +106,7 @@ public class Robot extends CommandRobot {
         CANSparkMax.enableExternalUSBControl(true);
     }
 
-    /**
-     * If you don't know what periodic means look it up.
-     */
+    /** If you don't know what periodic means look it up. */
     @Override
     public void robotPeriodic() {
         Dashboard.update();
@@ -119,10 +114,10 @@ public class Robot extends CommandRobot {
         SmartDashboard.updateValues();
     }
 
-
     @Override
     public void autonomousInit() {
-        // This call restarts the time on the dashboard so we can have an estimated time without having to look at the match clock.
+        // This call restarts the time on the dashboard so we can have an estimated time without
+        // having to look at the match clock.
         Dashboard.startMatchSegment();
 
         // Gets the autonomous routine from the chooser.
