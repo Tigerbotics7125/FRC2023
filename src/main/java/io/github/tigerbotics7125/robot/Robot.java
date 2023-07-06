@@ -27,6 +27,7 @@ import io.github.tigerbotics7125.robot.auto.CenterDelayMobility;
 import io.github.tigerbotics7125.robot.auto.None;
 import io.github.tigerbotics7125.robot.constants.ElevatorConstants;
 import io.github.tigerbotics7125.robot.subsystem.*;
+import io.github.tigerbotics7125.robot.subsystem.Arm.State;
 import io.github.tigerbotics7125.tigerlib.CommandRobot;
 import io.github.tigerbotics7125.tigerlib.input.trigger.Trigger;
 
@@ -44,7 +45,7 @@ public class Robot extends CommandRobot {
     // Controls the wheels and manages odometry.
     public static Drivetrain mDrivetrain;
     // Controls the cameras, and feeds data to the drivetrain, or more approprietly, odometry.
-    public static Vision mVision;
+    // public static Vision mVision;
     // Controls the elevator.
     public static Elevator mElev;
     // Controls the arm.
@@ -75,7 +76,7 @@ public class Robot extends CommandRobot {
         mPH.enableCompressorDigital();
 
         mDrivetrain = new Drivetrain();
-        mVision = new Vision();
+        // mVision = new Vision();
         mElev = new Elevator();
         mArm = new Arm();
         mWrist = new Wrist();
@@ -173,6 +174,7 @@ public class Robot extends CommandRobot {
 
         // ^ Operator
         // * Node / Substation Selector
+        /*
         mOI.mOp.pov.left().trigger(ON_RISING, Dashboard.selectLeft());
         mOI.mOp.pov.up().trigger(ON_RISING, Dashboard.selectUp());
         mOI.mOp.pov.right().trigger(ON_RISING, Dashboard.selectRight());
@@ -187,8 +189,10 @@ public class Robot extends CommandRobot {
         mOI.mOp.a().trigger(ON_RISING, mSuperStructure.setState(Dashboard.getSuperStrucState()));
         mOI.mOp.b().trigger(ON_RISING, mSuperStructure.setState(SuperStructure.State.STOW));
         mOI.mOp
-                .x()
-                .trigger(ON_RISING, mSuperStructure.setState(SuperStructure.State.GROUND_INTAKE));
+        .x()
+        .trigger(ON_RISING, mSuperStructure.setState(SuperStructure.State.GROUND_INTAKE));
+        */
+        mOI.mOp.a().trigger(ON_RISING, mArm.setState(State.TEST));
         // mOI.mOp.y().trigger(ON_RISING, mSuperStructure.setState(SuperStructure.State.HIGH_CUBE));
     }
 

@@ -29,7 +29,7 @@ public class ArmConstants {
     public static final ArmFeedforward FEEDFORWARD =
             new ArmFeedforward(0.18706, 0.87639, 32.408, 1.0992);
 
-    public static final double P_GAIN = 1.5;
+    public static final double P_GAIN = 3;
     public static final double I_GAIN = 0D;
     public static final double D_GAIN = 0D;
     public static final Constraints CONSTRAINTS = new Constraints(MAX_VEL, MAX_ACCEL);
