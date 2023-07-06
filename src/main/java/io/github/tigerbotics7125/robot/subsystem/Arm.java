@@ -43,7 +43,8 @@ public class Arm extends ProfiledPIDSubsystem {
 
     private final CANCoder mCANCoder = new CANCoder(CANCODER_ID);
     private final double mEncoderRatio = 1D / CHAIN_RATIO;
-    private final double mOffset = mCANCoder.getAbsolutePosition() * mEncoderRatio - ABSOLUTE_HOME_DEG * mEncoderRatio;
+    private final double mOffset =
+            mCANCoder.getAbsolutePosition() * mEncoderRatio - ABSOLUTE_HOME_DEG * mEncoderRatio;
 
     private State mState = State.HOME;
 
