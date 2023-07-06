@@ -39,6 +39,7 @@ public class Elevator extends ProfiledPIDSubsystem {
         HIGH_CUBE_SCORE(MAX_HEIGHT),
         HIGH_CONE_PLACE(0),
         HIGH_CONE_SCORE(0);
+
         private double mMeters;
 
         private State(double meters) {
@@ -53,7 +54,7 @@ public class Elevator extends ProfiledPIDSubsystem {
 
     private final ElevatorFeedforward mFF = new ElevatorFeedforward(0.0, KG, KV, KA);
 
-    private double mV0 = 0D;
+    private double mVelocity0 = 0D;
     private State mState = State.HOME;
 
     // Smooths out sim motion, not real representation of momentum.
@@ -78,13 +79,16 @@ public class Elevator extends ProfiledPIDSubsystem {
         RelativeEncoder enc = motor.getEncoder();
         enc.setPositionConversionFactor(POS_CONV_FACTOR);
         enc.setVelocityConversionFactor(VEL_CONV_FACTOR);
+
+        motor.burnFlash();
     }
 
     @Override
     protected void useOutput(double output, TrapezoidProfile.State setpoint) {
         double ff =
-                mFF.calculate(setpoint.velocity, (setpoint.velocity - mV0) / Robot.kDefaultPeriod);
-        mV0 = setpoint.velocity;
+                mFF.calculate(
+                        setpoint.velocity, (setpoint.velocity - mVelocity0) / Robot.kDefaultPeriod);
+        mVelocity0 = setpoint.velocity;
         mMaster.setVoltage(output * 12D + ff);
     }
 
