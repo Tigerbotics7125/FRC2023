@@ -11,7 +11,6 @@ import com.pathplanner.lib.auto.MecanumAutoBuilder;
 import com.pathplanner.lib.auto.PIDConstants;
 import com.revrobotics.CANSparkMax;
 import com.revrobotics.REVPhysicsSim;
-import edu.wpi.first.wpilibj.Compressor;
 import edu.wpi.first.wpilibj.DriverStation;
 import edu.wpi.first.wpilibj.PneumaticHub;
 import edu.wpi.first.wpilibj.PowerDistribution;
@@ -28,39 +27,51 @@ import io.github.tigerbotics7125.robot.auto.CenterDelayMobility;
 import io.github.tigerbotics7125.robot.auto.None;
 import io.github.tigerbotics7125.robot.constants.ElevatorConstants;
 import io.github.tigerbotics7125.robot.subsystem.*;
-import io.github.tigerbotics7125.robot.subsystem.Drivetrain.TurningMode;
 import io.github.tigerbotics7125.tigerlib.CommandRobot;
 import io.github.tigerbotics7125.tigerlib.input.trigger.Trigger;
 
 public class Robot extends CommandRobot {
 
-    // Components
+    // * Components
+    // Operator Interface, contains controller objects and methods.
     public static OI mOI;
+    // PDH Object, can (and should...) be used to track and manage power usage.
     public static PowerDistribution mPDH;
+    // PH Object, used to create and control pneumatic devices.
     public static PneumaticHub mPH;
-    public static Compressor mCompressor;
 
-    // Subsystems
+    // * Subsystems
+    // Controls the wheels and manages odometry.
     public static Drivetrain mDrivetrain;
+    // Controls the cameras, and feeds data to the drivetrain, or more approprietly, odometry.
     public static Vision mVision;
+    // Controls the elevator.
     public static Elevator mElev;
+    // Controls the arm.
     public static Arm mArm;
+    // Controls the wrist.
     public static Wrist mWrist;
+    // Controls the elevator, arm, and wrist together at the same time.
     public static SuperStructure mSuperStructure;
+    // Controls the intake.
     public static Intake mIntake;
 
-    // Commands
+    // * Commands
+    // Allows the robot to auto align to nodes.
     public static AutoPilot mAutoPilot;
 
-    // Chooser
+    // * Misc.
+    // Lets the user pick the auto that runs.
     public static SendableChooser<Auto> mAutoChooser;
 
+    /** Initializes all of the objects above plus sets up a couple things. */
     @Override
     public void robotInit() {
 
         mOI = new OI();
         mPDH = new PowerDistribution();
         mPH = new PneumaticHub();
+        // Turn the compressor on using the digital pressure sensor.
         mPH.enableCompressorDigital();
 
         mDrivetrain = new Drivetrain();
@@ -68,26 +79,34 @@ public class Robot extends CommandRobot {
         mElev = new Elevator();
         mArm = new Arm();
         mWrist = new Wrist();
+        // Obviously the SS requires the subsystems to control them.
         mSuperStructure = new SuperStructure(mElev, mArm, mWrist);
         mIntake = new Intake();
 
+        // The constructor uses a "Supplier" which in this case is a method reference / lambda, you
+        // can look up what those are.
         mAutoPilot = new AutoPilot(mDrivetrain, Dashboard::getAutoPilotPoint);
 
         mAutoChooser = new SendableChooser<>();
+        // Add options to the chooser, and by default do nothing.
         mAutoChooser.setDefaultOption("NONE", new None());
         mAutoChooser.addOption("Center Delay to Wall", new CenterDelayMobility());
         mAutoChooser.addOption("Cable Run", new CableRun());
 
+        // Configure button bindings.
         configTriggers();
-
+        // Configure what subsystems do when not running a command.
         configDefaultCommands();
 
+        // Setup the dashboard programatically so its always the same.
         Dashboard.init();
 
         // Allow SparkMaxs to be controlled from REV Hardware Client while on rio CAN bus.
+        // Supposed to fix that, but its kinda jank and still doesn't work all the time.
         CANSparkMax.enableExternalUSBControl(true);
     }
 
+    /** If you don't know what periodic means look it up. */
     @Override
     public void robotPeriodic() {
         Dashboard.update();
@@ -97,13 +116,17 @@ public class Robot extends CommandRobot {
 
     @Override
     public void autonomousInit() {
+        // This call restarts the time on the dashboard so we can have an estimated time without
+        // having to look at the match clock.
         Dashboard.startMatchSegment();
 
+        // Gets the autonomous routine from the chooser.
         Auto auto = mAutoChooser.getSelected();
 
-        // IndexOutOfBoundsException will occur with paths that are empty, so escape here.
+        // Gets the path created by path planner, and check that its not empty (causes IOoB error)
         if (auto.getPath().isEmpty()) return;
 
+        // The auto builder - it creates the path following command that is run during auto.
         MecanumAutoBuilder autoBuilder =
                 new MecanumAutoBuilder(
                         mDrivetrain::getPose,
@@ -115,6 +138,7 @@ public class Robot extends CommandRobot {
                         false,
                         mDrivetrain);
 
+        // Create the command and schedule it.
         Command autoCmd = autoBuilder.fullAuto(auto.getPath());
         CommandScheduler.getInstance().schedule(autoCmd);
     }
@@ -132,6 +156,8 @@ public class Robot extends CommandRobot {
 
     @Override
     public void simulationPeriodic() {
+        // Updates SparkMax values during sim, its kinda jank cuz rev didn't do such a great job,
+        // just hope it's better for next year.
         REVPhysicsSim.getInstance().run();
     }
 
@@ -141,9 +167,11 @@ public class Robot extends CommandRobot {
         // * Drive rotation via right joystick
         // * Alter behavior
         mOI.mDriver.b().trigger(ON_RISING, Commands.runOnce(mDrivetrain::resetGyro));
-        mOI.mDriver.x().trigger(ON_RISING, mDrivetrain.directTurning());
+        // These are commented out to prevent the driver accidentely changing and not knowing how to
+        // get back.
+        // mOI.mDriver.x().trigger(ON_RISING, mDrivetrain.directTurning());
         // mOI.mDriver.rb().trigger(ON_RISING, mDrivetrain.angleTurning());
-        mOI.mDriver.y().trigger(ON_RISING, mDrivetrain.lockTurning());
+        // mOI.mDriver.y().trigger(ON_RISING, mDrivetrain.lockTurning());
         /*
         // * Auto align and score (eventually)
         mOI.mDriver.start().trigger(WHILE_HIGH, mAutoPilot.getAutoPilotCommand());
@@ -170,7 +198,10 @@ public class Robot extends CommandRobot {
         // mOI.mOp.y().trigger(ON_RISING, mSuperStructure.setState(SuperStructure.State.HIGH_CUBE));
     }
 
-    /** Sets all subsystems default commands. */
+    /**
+     * Sets all subsystems default commands. In other words, what they should be doing when not
+     * explicetly running a different command.
+     */
     private void configDefaultCommands() {
         mDrivetrain.setDefaultCommand(
                 mDrivetrain.driveWithLimits(
