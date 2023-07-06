@@ -20,7 +20,6 @@ import edu.wpi.first.wpilibj.smartdashboard.SmartDashboard;
 import edu.wpi.first.wpilibj2.command.Command;
 import edu.wpi.first.wpilibj2.command.CommandScheduler;
 import edu.wpi.first.wpilibj2.command.Commands;
-import io.github.tigerbotics7125.robot.OI.Controller;
 import io.github.tigerbotics7125.robot.auto.Auto;
 import io.github.tigerbotics7125.robot.auto.CableRun;
 import io.github.tigerbotics7125.robot.auto.CenterDelayMobility;
@@ -29,7 +28,6 @@ import io.github.tigerbotics7125.robot.constants.ElevatorConstants;
 import io.github.tigerbotics7125.robot.subsystem.*;
 import io.github.tigerbotics7125.robot.subsystem.Arm.State;
 import io.github.tigerbotics7125.tigerlib.CommandRobot;
-import io.github.tigerbotics7125.tigerlib.input.trigger.Trigger;
 
 public class Robot extends CommandRobot {
 
