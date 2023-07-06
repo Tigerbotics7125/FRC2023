@@ -29,7 +29,8 @@ public class Arm extends ProfiledPIDSubsystem {
         HOME(new Rotation2d()),
         GROUND_INTAKE(Rotation2d.fromDegrees(47)),
         HIGH_CUBE(Rotation2d.fromDegrees(0)),
-        UP(Rotation2d.fromRadians(.1));
+        UP(Rotation2d.fromRadians(.1)),
+        TEST(Rotation2d.fromDegrees(165));
 
         private Rotation2d mRotation;
 
@@ -39,11 +40,11 @@ public class Arm extends ProfiledPIDSubsystem {
     }
 
     private final CANSparkMax mArm = new CANSparkMax(MOTOR_ID, MOTOR_TYPE);
+    private final RelativeEncoder mEncoder = mArm.getEncoder();
 
     private final CANCoder mCANCoder = new CANCoder(CANCODER_ID);
     private final double mEncoderRatio = 1D / CHAIN_RATIO;
-    private final double mOffset =
-            mCANCoder.getAbsolutePosition() * mEncoderRatio - ABSOLUTE_HOME_DEG * mEncoderRatio;
+    private final double mOffset = mCANCoder.getAbsolutePosition() * mEncoderRatio - ABSOLUTE_HOME_DEG * mEncoderRatio;
 
     private State mState = State.HOME;
 
@@ -56,6 +57,10 @@ public class Arm extends ProfiledPIDSubsystem {
         mCANCoder.setPosition(
                 -(CANCODER_POS_CONV_FACTOR
                         * (mCANCoder.getAbsolutePosition() - ABSOLUTE_HOME_DEG)));
+
+        double abs = mCANCoder.getAbsolutePosition();
+
+        mEncoder.setPosition(abs / GEAR_RATIO);
     }
 
     public void configMotor(CANSparkMax motor) {
@@ -78,7 +83,7 @@ public class Arm extends ProfiledPIDSubsystem {
 
     @Override
     public double getMeasurement() {
-        return Units.degreesToRadians(mCANCoder.getPosition()) * CANCODER_POS_CONV_FACTOR;
+        return mEncoder.getPosition();
     }
 
     public State getState() {
@@ -90,7 +95,7 @@ public class Arm extends ProfiledPIDSubsystem {
                 () -> {
                     this.enable();
                     mState = state;
-                    setGoal(state.mRotation.getRadians());
+                    setGoal(state.mRotation.getDegrees());
                 });
     }
 
