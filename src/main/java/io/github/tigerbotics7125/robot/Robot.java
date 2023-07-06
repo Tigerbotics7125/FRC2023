@@ -86,9 +86,6 @@ public class Robot extends CommandRobot {
 
         // Allow SparkMaxs to be controlled from REV Hardware Client while on rio CAN bus.
         CANSparkMax.enableExternalUSBControl(true);
-        // TODO: Use constants file to set these
-        mDrivetrain.setFieldOriented(true);
-        mDrivetrain.setTurningMode(TurningMode.JOYSTICK_DIRECT);
     }
 
     @Override

@@ -19,7 +19,7 @@ public final class DrivetrainConstants {
 
     // Default characteristics
     public static final boolean FIELD_ORIENTED_DEFAULT = true;
-    public static final TurningMode TURNING_MODE_DEFAULT = TurningMode.JOYSTICK_ANGLE;
+    public static final TurningMode TURNING_MODE_DEFAULT = TurningMode.JOYSTICK_DIRECT;
     public static final Rotation2d HEADING_DEFAULT = new Rotation2d();
 
     // CAN
