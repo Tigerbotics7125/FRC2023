@@ -7,19 +7,16 @@ package io.github.tigerbotics7125.robot;
 
 import static io.github.tigerbotics7125.robot.constants.DashboardConstants.*;
 
+import edu.wpi.first.cameraserver.CameraServer;
 import edu.wpi.first.wpilibj.DriverStation;
 import edu.wpi.first.wpilibj.DriverStation.Alliance;
 import edu.wpi.first.wpilibj.RobotState;
 import edu.wpi.first.wpilibj.Timer;
-import edu.wpi.first.wpilibj.shuffleboard.BuiltInLayouts;
-import edu.wpi.first.wpilibj.shuffleboard.BuiltInWidgets;
-import edu.wpi.first.wpilibj.shuffleboard.SendableCameraWrapper;
-import edu.wpi.first.wpilibj.shuffleboard.ShuffleboardLayout;
+import edu.wpi.first.wpilibj.shuffleboard.*;
 import edu.wpi.first.wpilibj2.command.Command;
 import edu.wpi.first.wpilibj2.command.Commands;
 import io.github.tigerbotics7125.robot.constants.AutoPilotConstants.AutoPilotPoint;
 import io.github.tigerbotics7125.robot.constants.VisionConstants;
-import io.github.tigerbotics7125.robot.subsystem.SuperStructure;
 import java.util.Map;
 import java.util.stream.Stream;
 import org.photonvision.PhotonCamera;
@@ -56,6 +53,7 @@ public class Dashboard {
     /** Initialize dashboard values. */
     public static void init() {
         highlight(mCurrentZone);
+        Shuffleboard.selectTab(MAIN_TAB.getTitle());
 
         // init and add node & substation selector widgets.
         initNodeSelector();
@@ -70,15 +68,26 @@ public class Dashboard {
         // Dont let photon use computation on it
         mDriverCam.setDriverMode(true);
         // Add camera widgets.
-        MAIN_TAB.add(
-                        "Driver Cam",
-                        SendableCameraWrapper.wrap(
-                                "Driver Cam",
-                                "http://10.71.25.12:1184/stream.mjpg",
-                                "http://photonvision.local:1184/stream.mjpg"))
+        var driverCam = CameraServer.startAutomaticCapture();
+        driverCam.setResolution(160, 100);
+        driverCam.setExposureAuto();
+        driverCam.setWhiteBalanceAuto();
+        driverCam.setFPS(10);
+        driverCam.setBrightness(40);
+        MAIN_TAB.add("Driver Cam", SendableCameraWrapper.wrap(driverCam))
                 .withPosition(0, 1)
                 .withSize(4, 4)
                 .withProperties(Map.of("Show crosshair", false, "Show controls", false));
+        // MAIN_TAB.add(
+        //                 "Driver Cam",
+        //                 SendableCameraWrapper.wrap(
+        //                         "Driver Cam",
+        //                         "http://10.71.25.12:1184/stream.mjpg",
+        //                         "http://photonvision.local:1184/stream.mjpg"))
+        //         .withPosition(0, 1)
+        //         .withSize(4, 4)
+        //         .withProperties(Map.of("Show crosshair", false, "Show controls", false));
+        //
         /*
                 MAIN_TAB.add(
                                 "Vision Cam",
@@ -109,27 +118,27 @@ public class Dashboard {
     }
 
     /** @return The desired SuperStructure state based on the dashboard selector. */
-    public static SuperStructure.State getSuperStrucState() {
-        if (getZone() == OpZone.NODES) {
-            int column = getSelectedNode()[0] % 3;
-            int row = getSelectedNode()[1] % 3;
-            // hybrid is all the same.
-            if (row == 2) return SuperStructure.State.HYBRID;
-            // if is cone
-            if (column == 0 || column == 2) {
-                if (row == 0) return SuperStructure.State.HIGH_CONE;
-                if (row == 1) return SuperStructure.State.MID_CONE;
-            } else {
-                // cube
-                if (row == 0) return SuperStructure.State.HIGH_CUBE;
-                if (row == 1) return SuperStructure.State.MID_CUBE;
-            }
-        } else if (getZone() == OpZone.SUBSTATIONS) {
-            return SuperStructure.State.SUBSTATION;
-        }
+    public static void getSuperStrucState() {
+        // if (getZone() == OpZone.NODES) {
+        //     int column = getSelectedNode()[0] % 3;
+        //     int row = getSelectedNode()[1] % 3;
+        //     // hybrid is all the same.
+        //     if (row == 2) return SuperStructure.State.HYBRID;
+        //     // if is cone
+        //     if (column == 0 || column == 2) {
+        //         if (row == 0) return SuperStructure.State.HIGH_CONE;
+        //         if (row == 1) return SuperStructure.State.MID_CONE;
+        //     } else {
+        //         // cube
+        //         if (row == 0) return SuperStructure.State.HIGH_CUBE;
+        //         if (row == 1) return SuperStructure.State.MID_CUBE;
+        //     }
+        // } else if (getZone() == OpZone.SUBSTATIONS) {
+        //     return SuperStructure.State.SUBSTATION;
+        // }
 
-        // Unknown desired state
-        return SuperStructure.State.DISABLE;
+        // // Unknown desired state
+        // return SuperStructure.State.DISABLE;
     }
 
     /** @return The desired AutoPilotPoint as determined by the dashboard. */

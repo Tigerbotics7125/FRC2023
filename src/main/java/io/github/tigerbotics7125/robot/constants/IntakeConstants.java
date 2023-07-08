@@ -37,7 +37,7 @@ public class IntakeConstants {
 
     // Auto detect values.
     public static final int CURRENT_AVG_SAMPLES = 7;
-    public static final double MIN_DETECT_CURRENT = 7;
+    public static final double MIN_DETECT_CURRENT = 6.75;
     public static final double MIN_DETECT_TIME = .3;
 
     // Pneumatic values.

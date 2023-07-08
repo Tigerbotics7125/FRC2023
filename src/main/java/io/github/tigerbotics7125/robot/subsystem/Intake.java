@@ -185,7 +185,11 @@ public class Intake extends SubsystemBase {
     public CommandBase outakeRoutine() {
         return grippersClose()
                 .andThen(intakeOut())
-                .finallyDo((interrupted -> grippersOpen().schedule()));
+                .withTimeout(1)
+                .finallyDo(
+                        (interrupted -> {
+                            grippersOpen().andThen(disable()).schedule();
+                        }));
     }
 
     public CommandBase coneIntakeRoutine() {

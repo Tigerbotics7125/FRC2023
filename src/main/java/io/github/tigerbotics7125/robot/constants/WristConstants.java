@@ -9,9 +9,8 @@ import com.ctre.phoenix.sensors.AbsoluteSensorRange;
 import com.ctre.phoenix.sensors.CANCoderConfiguration;
 import com.ctre.phoenix.sensors.SensorInitializationStrategy;
 import com.revrobotics.CANSparkMaxLowLevel.MotorType;
-import edu.wpi.first.math.controller.ProfiledPIDController;
+import edu.wpi.first.math.controller.PIDController;
 import edu.wpi.first.math.trajectory.TrapezoidProfile.Constraints;
-import edu.wpi.first.math.util.Units;
 
 public class WristConstants {
 
@@ -25,22 +24,22 @@ public class WristConstants {
     // not calculated, simply pick time to reach max vel.
     public static final double MAX_ACCEL = MAX_VEL / 1D; // rotations per second^2
 
-    public static final double P_GAIN = .4;
+    public static final double P_GAIN = .03;
     public static final double I_GAIN = 0;
     public static final double D_GAIN = 0;
     public static final Constraints CONSTRAINTS = new Constraints(MAX_VEL, MAX_ACCEL);
-    public static final ProfiledPIDController PID =
-            new ProfiledPIDController(P_GAIN, I_GAIN, D_GAIN, CONSTRAINTS);
+    public static final PIDController PID =
+            new PIDController(P_GAIN, I_GAIN, D_GAIN); // , CONSTRAINTS);
 
     static {
-        PID.setTolerance(Units.degreesToRadians(1));
+        // PID.setTolerance(Units.degreesToRadians(1));
     }
 
     public static final double ABSOLUTE_HOME_DEG = 117D;
 
     public static final double GEAR_RATIO = 20D;
-    public static final double CHAIN_RATIO = 60D / 12D;
-    public static final double CHAIN_RATIO2 = 12D / 22D;
+    public static final double CHAIN_RATIO = 60D / 10D;
+    public static final double CHAIN_RATIO2 = 10D / 22D;
     public static final double CANCODER_POS_CONV_FACTOR = 1D / CHAIN_RATIO2;
     public static final double POS_CONV_FACTOR = 1D / (GEAR_RATIO * CHAIN_RATIO * CHAIN_RATIO2);
     public static final double VEL_CONV_FACTOR = POS_CONV_FACTOR / 60D; // mps

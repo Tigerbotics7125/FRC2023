@@ -29,7 +29,7 @@ public class ElevatorConstants {
     // Emperical value.
     public static final double MAX_ACCEL = MAX_VEL / 1.125; // mps^s
 
-    public static final double P_GAIN = 1.25;
+    public static final double P_GAIN = 20;
     public static final double I_GAIN = 0;
     public static final double D_GAIN = .1;
     public static final Constraints CONSTRAINTS = new Constraints(MAX_VEL, MAX_ACCEL);

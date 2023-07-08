@@ -5,8 +5,9 @@
  */
 package io.github.tigerbotics7125.robot;
 
-import static io.github.tigerbotics7125.tigerlib.input.trigger.Trigger.ActivationCondition.*;
+import static io.github.tigerbotics7125.tigerlib.input.trigger.Trigger.ActivationCondition.ON_RISING;
 
+import com.pathplanner.lib.PathPlannerTrajectory;
 import com.pathplanner.lib.auto.MecanumAutoBuilder;
 import com.pathplanner.lib.auto.PIDConstants;
 import com.revrobotics.CANSparkMax;
@@ -20,38 +21,34 @@ import edu.wpi.first.wpilibj.smartdashboard.SmartDashboard;
 import edu.wpi.first.wpilibj2.command.Command;
 import edu.wpi.first.wpilibj2.command.CommandScheduler;
 import edu.wpi.first.wpilibj2.command.Commands;
-import io.github.tigerbotics7125.robot.auto.Auto;
-import io.github.tigerbotics7125.robot.auto.CableRun;
-import io.github.tigerbotics7125.robot.auto.CenterDelayMobility;
-import io.github.tigerbotics7125.robot.auto.None;
+import io.github.tigerbotics7125.robot.OI.Controller;
+import io.github.tigerbotics7125.robot.auto.*;
+import io.github.tigerbotics7125.robot.commands.SuperStructure;
 import io.github.tigerbotics7125.robot.constants.ElevatorConstants;
 import io.github.tigerbotics7125.robot.subsystem.*;
-import io.github.tigerbotics7125.robot.subsystem.Arm.State;
 import io.github.tigerbotics7125.tigerlib.CommandRobot;
+import java.util.List;
 
 public class Robot extends CommandRobot {
 
     // * Components
     // Operator Interface, contains controller objects and methods.
     public static OI mOI;
-    // PDH Object, can (and should...) be used to track and manage power usage.
-    public static PowerDistribution mPDH;
     // PH Object, used to create and control pneumatic devices.
     public static PneumaticHub mPH;
 
     // * Subsystems
     // Controls the wheels and manages odometry.
     public static Drivetrain mDrivetrain;
+    // Vision has still not actually been used during competition which is omega sadge.
     // Controls the cameras, and feeds data to the drivetrain, or more approprietly, odometry.
     // public static Vision mVision;
     // Controls the elevator.
-    public static Elevator mElev;
+    public static Elevator2 mElev;
     // Controls the arm.
-    public static Arm mArm;
+    public static Arm2 mArm;
     // Controls the wrist.
-    public static Wrist mWrist;
-    // Controls the elevator, arm, and wrist together at the same time.
-    public static SuperStructure mSuperStructure;
+    public static Wrist2 mWrist;
     // Controls the intake.
     public static Intake mIntake;
 
@@ -66,20 +63,23 @@ public class Robot extends CommandRobot {
     /** Initializes all of the objects above plus sets up a couple things. */
     @Override
     public void robotInit() {
+        SmartDashboard.putBoolean("codeReady", false);
+        // literally stfu
+        DriverStation.silenceJoystickConnectionWarning(true);
 
         mOI = new OI();
-        mPDH = new PowerDistribution();
-        mPH = new PneumaticHub();
+
         // Turn the compressor on using the digital pressure sensor.
+        mPH = new PneumaticHub();
         mPH.enableCompressorDigital();
 
         mDrivetrain = new Drivetrain();
         // mVision = new Vision();
-        mElev = new Elevator();
-        mArm = new Arm();
-        mWrist = new Wrist();
+        mElev = new Elevator2();
+        mArm = new Arm2();
+        mWrist = new Wrist2();
         // Obviously the SS requires the subsystems to control them.
-        mSuperStructure = new SuperStructure(mElev, mArm, mWrist);
+        // mSuperStructure = new SuperStructure(mElev, mArm, mWrist);
         mIntake = new Intake();
 
         // The constructor uses a "Supplier" which in this case is a method reference / lambda, you
@@ -89,8 +89,10 @@ public class Robot extends CommandRobot {
         mAutoChooser = new SendableChooser<>();
         // Add options to the chooser, and by default do nothing.
         mAutoChooser.setDefaultOption("NONE", new None());
-        mAutoChooser.addOption("Center Delay to Wall", new CenterDelayMobility());
-        mAutoChooser.addOption("Cable Run", new CableRun());
+        // mAutoChooser.addOption("Center Delay to Wall", new CenterDelayMobility());
+        // mAutoChooser.addOption("Cable Run", new CableRun());
+        mAutoChooser.addOption("Standstill Cube", new StandstillCube(mElev, mArm, mWrist, mIntake));
+        // mAutoChooser.addOption("StandstillCube", new Auto() );
 
         // Configure button bindings.
         configTriggers();
@@ -103,6 +105,15 @@ public class Robot extends CommandRobot {
         // Allow SparkMaxs to be controlled from REV Hardware Client while on rio CAN bus.
         // Supposed to fix that, but its kinda jank and still doesn't work all the time.
         CANSparkMax.enableExternalUSBControl(true);
+
+        SmartDashboard.putBoolean("codeReady", true);
+        System.out.println();
+        System.out.println();
+        System.out.println();
+        System.out.println("** ROBOT CODE INITIALIZED **");
+        System.out.println();
+        System.out.println();
+        System.out.println();
     }
 
     /** If you don't know what periodic means look it up. */
@@ -123,7 +134,8 @@ public class Robot extends CommandRobot {
         Auto auto = mAutoChooser.getSelected();
 
         // Gets the path created by path planner, and check that its not empty (causes IOoB error)
-        if (auto.getPath().isEmpty()) return;
+        List<PathPlannerTrajectory> path = auto.getPath();
+        if (path.isEmpty()) path = List.of(new PathPlannerTrajectory());
 
         // The auto builder - it creates the path following command that is run during auto.
         MecanumAutoBuilder autoBuilder =
@@ -138,19 +150,14 @@ public class Robot extends CommandRobot {
                         mDrivetrain);
 
         // Create the command and schedule it.
-        Command autoCmd = autoBuilder.fullAuto(auto.getPath());
+        Command autoCmd =
+                auto.preCommand().andThen(autoBuilder.fullAuto(path)).andThen(auto.postCommand());
         CommandScheduler.getInstance().schedule(autoCmd);
     }
 
     @Override
     public void teleopInit() {
         Dashboard.startMatchSegment();
-    }
-
-    @Override
-    public void simulationInit() {
-        // Disable joystick warnings in sim.
-        DriverStation.silenceJoystickConnectionWarning(true);
     }
 
     @Override
@@ -177,27 +184,27 @@ public class Robot extends CommandRobot {
         */
 
         // ^ Operator
-        // * Node / Substation Selector
-        /*
-        mOI.mOp.pov.left().trigger(ON_RISING, Dashboard.selectLeft());
-        mOI.mOp.pov.up().trigger(ON_RISING, Dashboard.selectUp());
-        mOI.mOp.pov.right().trigger(ON_RISING, Dashboard.selectRight());
-        mOI.mOp.pov.down().trigger(ON_RISING, Dashboard.selectDown());
-        // ~ Toggle slection between nodes & substations
-        mOI.mOp.start().trigger(ON_RISING, Dashboard.toggleZone());
-        // * Intake Control
+
+        // mOI.mOp.y().trigger(ON_RISING, SuperStructure.ensureSafe(mArm, mWrist, mIntake));
+        // mOI.mOp.pov.up().trigger(ON_RISING, mElev.setState(Elevator.ElevState.HALF));
+        // mOI.mOp.pov.down().trigger(ON_RISING, mElev.setState(Elevator.ElevState.HOME));
+
         mOI.mOp.lb().trigger(ON_RISING, mIntake.cubeIntakeRoutine(mOI.rumble(Controller.BOTH)));
-        mOI.mOp.rb().trigger(ON_RISING, mIntake.coneIntakeRoutine());
-        new Trigger(() -> mOI.mOp.rt().get() > .5).trigger(WHILE_HIGH, mIntake.outakeRoutine());
-        // * Super Structure Control
-        mOI.mOp.a().trigger(ON_RISING, mSuperStructure.setState(Dashboard.getSuperStrucState()));
-        mOI.mOp.b().trigger(ON_RISING, mSuperStructure.setState(SuperStructure.State.STOW));
+        mOI.mOp.rb().trigger(ON_RISING, mIntake.outakeRoutine());
+
+        mOI.mOp.a().trigger(ON_RISING, SuperStructure.home(mElev, mArm, mWrist, mIntake));
         mOI.mOp
-        .x()
-        .trigger(ON_RISING, mSuperStructure.setState(SuperStructure.State.GROUND_INTAKE));
-        */
-        mOI.mOp.a().trigger(ON_RISING, mArm.setState(State.TEST));
-        // mOI.mOp.y().trigger(ON_RISING, mSuperStructure.setState(SuperStructure.State.HIGH_CUBE));
+                .pov
+                .down()
+                .trigger(ON_RISING, SuperStructure.groundIntake(mElev, mArm, mWrist, mIntake));
+        mOI.mOp
+                .pov
+                .right()
+                .trigger(ON_RISING, SuperStructure.midCube(mElev, mArm, mWrist, mIntake));
+
+        mOI.mOp.pov.up().trigger(ON_RISING, SuperStructure.highCube(mElev, mArm, mWrist, mIntake));
+
+        // mOI.mOp.y().trigger(ON_RISING, mElev.setState(ElevState.QUARTER));
     }
 
     /**
@@ -212,8 +219,5 @@ public class Robot extends CommandRobot {
                         mOI.mDriver.rightY()::get,
                         () -> mOI.mDriver.rightX().get() * -1,
                         () -> 1 - (mElev.getMeasurement() / ElevatorConstants.MAX_HEIGHT)));
-        mIntake.setDefaultCommand(mIntake.disable());
-        mArm.setDefaultCommand(mArm.manualDrive(mOI.mOp.leftY()::get));
-        mWrist.setDefaultCommand(mWrist.manualDrive(mOI.mOp.rightY()::get));
     }
 }
